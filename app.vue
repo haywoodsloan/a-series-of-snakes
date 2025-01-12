@@ -27,7 +27,7 @@ body {
   overflow: hidden;
 
   background: url('/image/noise.png'),
-    radial-gradient(circle at center, rgb(0, 75, 0) 0%, rgb(0, 5, 0) 100%);
+    radial-gradient(circle at center, rgb(0, 90, 0) 0%, rgb(0, 5, 0) 100%);
 }
 
 .title {
