@@ -26,7 +26,7 @@ body {
   min-height: 100vh;
   overflow: hidden;
 
-  background: url('/image/noise.png'),
+  background: url('./image/noise.png'),
     radial-gradient(
       circle at center,
       rgba(0, 90, 0, 1) 0%,
