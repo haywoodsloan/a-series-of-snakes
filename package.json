@@ -16,6 +16,11 @@
     "vue-router": "latest"
   },
   "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^5.2.1",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
     "sass-embedded": "^1.83.1"
   }
 }

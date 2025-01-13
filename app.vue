@@ -1,15 +1,24 @@
 <template>
-  <div class="main crt">
+  <div class="crt">
     <NuxtRouteAnnouncer />
-    <h1 class="title">A Series of Snakes</h1>
+    <div class="main">
+      <div class="header">
+        <h1 class="title">A Series of Snakes</h1>
+      </div>
+      <GameSelector class="content" />
+      <div class="footer"></div>
+    </div>
   </div>
 </template>
 
-<style>
+<style lang="scss">
 html,
 body {
+  overflow: hidden;
+
   margin: 0;
   padding: 0;
+
   background-color: black;
 }
 
@@ -22,10 +31,8 @@ body {
 <style lang="scss" scoped>
 @import url('~/assets/css/crt.scss');
 
-.main {
-  min-height: 100vh;
-  overflow: hidden;
-
+.crt {
+  height: 100vh;
   background: url('/image/noise.png'),
     radial-gradient(
       circle at center,
@@ -34,10 +41,31 @@ body {
     );
 }
 
+.main {
+  height: 100%;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+
+  .header,
+  .footer {
+    flex-grow: 1;
+    flex-basis: 0;
+  }
+
+  .content {
+    flex-grow: 1;
+  }
+}
+
 .title {
-  font-family: PublicPixel, Roboto, sans-serif;
-  font-size: 5rem;
-  color: rgba(245, 245, 245, 1);
-  margin: 1rem;
+  font-family: PublicPixel;
+  font-size: 3.5rem;
+
+  color: rgba(255, 255, 255, 1);
+
+  margin: 0;
+  padding: 1rem;
 }
 </style>
