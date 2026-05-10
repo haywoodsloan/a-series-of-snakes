@@ -33,23 +33,19 @@
         class="prev"
         aria-label="Previous"
         :disabled="page === 0"
-        v-html="chevronLeft"
         @click="page--"
-      ></button>
+      >&lt;</button>
       <button
         class="next"
         aria-label="Next"
         :disabled="page >= pageCount - 1"
-        v-html="chevronRight"
         @click="page++"
-      ></button>
+      >&gt;</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import chevronLeft from '~/assets/svg/chevron-left.svg?raw';
-import chevronRight from '~/assets/svg/chevron-right.svg?raw';
 import games from './games/index.js';
 
 const ROWS = 4;
@@ -123,7 +119,8 @@ function snowStyle() {
     justify-content: center;
 
     padding: 0.75rem 1.25rem;
-    font-size: 1.5rem;
+    font-family: PublicPixel, monospace;
+    font-size: 2.5rem;
     line-height: 1;
 
     background: transparent;
@@ -131,6 +128,12 @@ function snowStyle() {
     border: none;
     outline: none;
     cursor: pointer;
+    text-shadow: 0 0 0.3rem currentColor;
+    transform: scaleY(1.4);
+    transform-origin: center;
+    transition:
+      transform 0.15s ease-out,
+      text-shadow 0.15s ease-out;
 
     &:focus-visible {
       outline: none;
@@ -141,20 +144,11 @@ function snowStyle() {
       opacity: 0.25;
     }
 
-    &:not(:disabled):hover :deep(svg),
-    &:not(:disabled):focus-visible :deep(svg) {
-      transform: scale(1.15);
-      filter: drop-shadow(0 0 0.5rem currentColor);
+    &:not(:disabled):hover,
+    &:not(:disabled):focus-visible {
+      transform: scaleY(1.4) scale(1.15);
+      text-shadow: 0 0 0.5rem currentColor;
     }
-  }
-
-  :deep(svg) {
-    width: 2.5em;
-    height: 2.5em;
-    filter: drop-shadow(0 0 0.3rem currentColor);
-    transition:
-      transform 0.15s ease-out,
-      filter 0.15s ease-out;
   }
 }
 
@@ -251,7 +245,8 @@ function snowStyle() {
     inset: auto 0 8%;
     z-index: 1;
 
-    font-size: 1.4rem;
+    font-family: PublicPixel, monospace;
+    font-size: 1.1rem;
     text-align: center;
     color: #d4ffd4;
     text-shadow:
@@ -269,17 +264,18 @@ function snowStyle() {
 
 .preview-image {
   position: absolute;
-  inset: 15% 10% 25%;
+  inset: 10%;
   z-index: 1;
 
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
   filter: drop-shadow(0 0 0.5rem rgba(212, 255, 212, 0.6));
 
   :deep(svg) {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
   }
 }
 
