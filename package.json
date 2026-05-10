@@ -11,17 +11,17 @@
   },
   "dependencies": {
     "@nuxt/fonts": "^0.14.0",
-    "nuxt": "^4.4.2",
+    "nuxt": "^4.4.4",
     "vue": "latest",
     "vue-router": "latest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-    "eslint": "^10.1.0",
+    "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
-    "globals": "^17.4.0",
-    "prettier": "^3.8.1",
-    "sass-embedded": "^1.98.0"
+    "globals": "^17.6.0",
+    "prettier": "^3.8.3",
+    "sass-embedded": "^1.99.0"
   }
 }
