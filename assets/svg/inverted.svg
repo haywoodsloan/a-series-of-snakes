@@ -1,0 +1,22 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  preserveAspectRatio="xMidYMid meet"
+  width="100%"
+  height="100%"
+>
+  <!-- Mirror of classic.svg across the vertical axis. -->
+  <g transform="translate(100 0) scale(-1 1)">
+    <g fill="#d4ffd4">
+      <rect x="21.6" y="12" width="9.6" height="9.6" />
+      <rect x="31.2" y="12" width="9.6" height="9.6" />
+      <rect x="40.8" y="12" width="9.6" height="9.6" />
+      <rect x="50.4" y="12" width="9.6" height="9.6" />
+      <rect x="50.4" y="21.6" width="9.6" height="9.6" />
+      <rect x="50.4" y="31.2" width="9.6" height="9.6" />
+      <rect x="50.4" y="40.8" width="9.6" height="9.6" />
+      <rect x="60.0" y="40.8" width="9.6" height="9.6" />
+    </g>
+    <rect x="79.2" y="60" width="9.6" height="9.6" fill="#ff6b6b" />
+  </g>
+</svg>

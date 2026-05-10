@@ -20,6 +20,13 @@
  * @property {Point} at                The cell the head ended up in.
  */
 
+import {
+  loadScores,
+  qualifies,
+  saveScore,
+  topScore,
+} from './highscores.js';
+
 const DIRECTION_DELTAS = {
   up: { x: 0, y: -1 },
   down: { x: 0, y: 1 },
@@ -51,6 +58,7 @@ const FG = '#d4ffd4';
 const FOOD_COLOR = '#ff6b6b';
 const PLAYFIELD_BG = '#050505';
 const SCORE_COLOR = '#ffd86b';
+const HIGH_COLOR = '#ff9e6b';
 const SCORE_FONT = '28px PublicPixel, monospace';
 const GAME_OVER_FONT = '48px PublicPixel, monospace';
 
@@ -62,13 +70,18 @@ export default class Engine {
    * @param {number} [options.rows=20]    Grid height in cells.
    * @param {number} [options.tickRate=8] Logic ticks per second.
    */
-  constructor(canvas, { cols = 20, rows = 20, tickRate = 8 } = {}) {
+  constructor(canvas, { cols = 20, rows = 20, tickRate = 8, gameKey } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
 
     // Grid dimensions in cells.
     this.cols = cols;
     this.rows = rows;
+
+    // High-score persistence key. Defaults to the constructor name in lower
+    // case so subclasses get a sane per-game bucket without extra wiring.
+    this.gameKey = (gameKey ?? this.constructor.name).toLowerCase();
+    this.highScore = topScore(this.gameKey);
 
     // Game state.
     /** @type {Snake[]} */
@@ -83,7 +96,15 @@ export default class Engine {
     this._lastFrame = 0;
     this._tickAccum = 0;
     this._tickInterval = 1 / tickRate;
+    // Hard cap on time advanced per frame so a tab-resume (where RAF was
+    // throttled to ~1fps) can't fire dozens of catch-up ticks in one frame
+    // and freeze the game ("spiral of death").
+    this._maxFrameDt = 0.25;
     this._running = false;
+
+    // Canvas content only changes on tick/resize/state-change, not on every
+    // animation frame. The loop calls `render()` only when this is true.
+    this._dirty = true;
 
     // Cached grid layout, invalidated on canvas resize.
     this._layout = null;
@@ -103,7 +124,7 @@ export default class Engine {
       this._resizePending = true;
       requestAnimationFrame(() => {
         this._resizePending = false;
-        if (this._syncCanvasSize()) this.render();
+        if (this._syncCanvasSize()) this._dirty = true;
       });
     });
     this._syncCanvasSize();
@@ -138,17 +159,22 @@ export default class Engine {
 
     const loop = (now) => {
       if (!this._running) return;
-      const dt = (now - this._lastFrame) / 1000;
+      // Clamp dt so background-tab catch-up can't stall the main thread.
+      const dt = Math.min(this._maxFrameDt, (now - this._lastFrame) / 1000);
       this._lastFrame = now;
 
-      // Fixed-step logic, variable-step rendering.
+      // Fixed-step logic, dirty-flag rendering.
       this._tickAccum += dt;
       while (this._tickAccum >= this._tickInterval) {
         this._tickAccum -= this._tickInterval;
         this.update(this._tickInterval);
+        this._dirty = true;
       }
 
-      this.render();
+      if (this._dirty) {
+        this._dirty = false;
+        this.render();
+      }
       this._raf = requestAnimationFrame(loop);
     };
     this._raf = requestAnimationFrame(loop);
@@ -165,6 +191,27 @@ export default class Engine {
     this.stop();
     this._inputHandlers.clear();
     this._resizeObserver = null;
+  }
+
+  /**
+   * Set how many logic ticks fire per second. Takes effect immediately;
+   * any partially accumulated tick time is kept so the next tick lands at
+   * the new cadence without skipping or double-stepping.
+   * @param {number} tickRate Ticks per second; clamped to a positive value.
+   */
+  setTickRate(tickRate) {
+    const safe = Math.max(0.0001, Number(tickRate) || 0);
+    this._tickInterval = 1 / safe;
+    // Don't let a stale accumulator immediately fire many catch-up ticks
+    // after a large slowdown -> speedup transition.
+    if (this._tickAccum > this._tickInterval) {
+      this._tickAccum = this._tickInterval;
+    }
+  }
+
+  /** @returns {number} Current ticks per second. */
+  get tickRate() {
+    return 1 / this._tickInterval;
   }
 
   // ---------- Snake helpers ----------
@@ -207,10 +254,16 @@ export default class Engine {
 
     const head = snake.segments[0];
     const delta = DIRECTION_DELTAS[snake.direction];
-    const next = {
-      x: (((head.x + delta.x) % this.cols) + this.cols) % this.cols,
-      y: (((head.y + delta.y) % this.rows) + this.rows) % this.rows,
-    };
+    // Branchless wrap: |delta| <= 1, so a single add+compare per axis is
+    // enough -- avoids the double `%` modulo and the negative-modulo dance.
+    let nx = head.x + delta.x;
+    if (nx < 0) nx = this.cols - 1;
+    else if (nx >= this.cols) nx = 0;
+    let ny = head.y + delta.y;
+    if (ny < 0) ny = this.rows - 1;
+    else if (ny >= this.rows) ny = 0;
+
+    const next = { x: nx, y: ny };
     snake.segments.unshift(next);
     if (snake.segments.length > snake.length) {
       snake.segments.pop();
@@ -394,10 +447,32 @@ export default class Engine {
   onCollision(_collision) {
     if (this.gameOver) return;
     this.gameOver = true;
+    this._dirty = true;
     this.stop();
-    this.canvas.dispatchEvent(
-      new CustomEvent('gameover', { detail: { engine: this } })
-    );
+    const detail = {
+      engine: this,
+      score: this.score,
+      gameKey: this.gameKey,
+      qualifies: qualifies(this.gameKey, this.score),
+    };
+    this.canvas.dispatchEvent(new CustomEvent('gameover', { detail }));
+  }
+
+  /**
+   * Persist a high-score entry under this game's key and refresh the cached
+   * top score so the next render reflects it. Returns the updated list.
+   * @param {string} name 3-letter initials.
+   */
+  submitHighScore(name) {
+    const list = saveScore(this.gameKey, name, this.score);
+    this.highScore = list.length ? list[0].score : 0;
+    this._dirty = true;
+    return list;
+  }
+
+  /** Read the current top-N scores for this game. */
+  getHighScores() {
+    return loadScores(this.gameKey);
   }
 
   // ---------- Rendering ----------
@@ -521,12 +596,22 @@ export default class Engine {
   _drawScore({ ox, oy, cell }) {
     const { ctx } = this;
     const pad = Math.max(4, Math.round(cell * 0.25));
-    ctx.fillStyle = SCORE_COLOR;
+    const w = cell * this.cols;
     ctx.font = SCORE_FONT;
     ctx.textBaseline = 'top';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
     ctx.shadowBlur = 6;
-    ctx.fillText(`Score: ${this.score}`, ox + pad, oy + pad);
+
+    // SCORE in the top-left, HI mirrored to the top-right.
+    ctx.textAlign = 'left';
+    ctx.fillStyle = SCORE_COLOR;
+    ctx.fillText(`SCORE ${this.score}`, ox + pad, oy + pad);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = HIGH_COLOR;
+    ctx.fillText(`HI ${this.highScore}`, ox + w - pad, oy + pad);
+
+    ctx.textAlign = 'start';
     ctx.shadowBlur = 0;
   }
 

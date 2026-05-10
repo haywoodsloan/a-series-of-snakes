@@ -1,20 +1,23 @@
 import Engine from './engine.js';
 
-// Speed ramp tuning. The snake starts at BASE_TICK_RATE ticks/sec and each
-// pellet bumps the rate by SPEED_STEP, capped at MAX_TICK_RATE so the game
-// stays playable on very long runs.
+// Speed ramp tuning, mirrored from classic.js.
 const BASE_TICK_RATE = 8;
 const SPEED_STEP = 0.4;
 const MAX_TICK_RATE = 20;
 
-export default class Classic extends Engine {
+// Flip table: up<->down, left<->right. Applied at the input source so the
+// engine's U-turn guard never sees the pre-flip direction.
+const FLIP = {
+  up: 'down',
+  down: 'up',
+  left: 'right',
+  right: 'left',
+};
+
+export default class Inverted extends Engine {
   constructor(canvas) {
     super(canvas, { tickRate: BASE_TICK_RATE });
 
-    // Spawn one snake with target length 3 at a random spot. While idle the
-    // snake is just a single visible cell; once the player picks a
-    // direction it grows to its full length as it moves -- always rendering
-    // as a straight line because every step extends in the same direction.
     const head = {
       x: Math.floor(Math.random() * this.cols),
       y: Math.floor(Math.random() * this.rows),
@@ -22,12 +25,10 @@ export default class Classic extends Engine {
     this._snake = this.addSnake({ head, length: 3 });
     this._started = false;
 
-    // One pellet to start.
     this.addRandomFood();
 
-    // First direction input also starts the snake moving.
     this.onInput(({ dir }) => {
-      this.setDirection(this._snake, dir);
+      this.setDirection(this._snake, FLIP[dir]);
       this._started = true;
     });
   }
@@ -40,7 +41,6 @@ export default class Classic extends Engine {
   onEat(snake, food) {
     super.onEat(snake, food);
     this.addRandomFood();
-    // Ramp speed with score; cap so the simulation stays solvable.
     this.setTickRate(
       Math.min(MAX_TICK_RATE, BASE_TICK_RATE + this.score * SPEED_STEP)
     );

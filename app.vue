@@ -4,7 +4,7 @@
     <div class="main">
       <div class="header">
         <h1 class="title">A Series of Snakes</h1>
-        <NuxtLink v-if="showBack" to="/" class="back" aria-label="Back">
+        <NuxtLink v-if="showBack" to="/" class="back" aria-label="Back" draggable="false">
           <span class="chevron" aria-hidden="true">&lt;</span> Back
         </NuxtLink>
       </div>
@@ -34,7 +34,18 @@ body {
 
 @font-face {
   font-family: 'PublicPixel';
-  src: url('~/assets/fonts/PublicPixel.ttf');
+  src: url('~/assets/fonts/PublicPixel.ttf') format('truetype');
+  // Avoid invisible-text flash on slow networks; show fallback then swap in.
+  font-display: swap;
+}
+
+// Interactive controls shouldn't be draggable or text-selectable -- dragging
+// an anchor in particular kicks off a browser drag-and-drop with a ghost
+// image, which is never what we want for in-app navigation.
+a,
+button {
+  -webkit-user-drag: none;
+  user-select: none;
 }
 </style>
 

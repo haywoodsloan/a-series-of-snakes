@@ -1,18 +1,89 @@
 <template>
   <div class="game-host">
     <canvas ref="canvasRef" class="game-canvas" />
-    <button v-if="showRestart" class="restart" @click="restart">Restart</button>
+    <div v-if="showOverlay" class="overlay">
+      <form
+        v-if="needsName"
+        class="name-entry"
+        @submit.prevent="submitName"
+      >
+        <label class="prompt">{{
+          isTopScore ? 'New high score! Enter initials' : 'Enter initials'
+        }}</label>
+        <div class="initials-wrap">
+          <input
+            ref="nameInput"
+            v-model="initials"
+            class="initials"
+            maxlength="3"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            inputmode="text"
+            aria-label="Initials"
+            @input="onInitialsInput"
+          />
+          <div class="initials-ghost" aria-hidden="true">
+            <span :class="{ pending: initials.length === 0 }"><i>{{ initials[0] || '_' }}</i></span>
+            <span :class="{ pending: initials.length === 1 }"><i>{{ initials[1] || '_' }}</i></span>
+            <span :class="{ pending: initials.length === 2 }"><i>{{ initials[2] || '_' }}</i></span>
+          </div>
+        </div>
+        <button type="submit" class="overlay-btn" :disabled="initials.length < 3">
+          Save
+        </button>
+      </form>
+      <div v-else class="end-screen">
+        <button class="overlay-btn restart" @click="restart">Restart</button>
+        <ol
+          v-if="highScores.length"
+          class="scoreboard"
+          aria-label="High scores"
+        >
+          <li class="scoreboard-header">
+            <span class="rank">RANK</span>
+            <span class="name">NAME</span>
+            <span class="score">SCORE</span>
+          </li>
+          <li
+            v-for="(entry, idx) in highScores"
+            :key="idx"
+            class="scoreboard-row"
+            :class="{ current: idx === currentIndex }"
+          >
+            <span class="rank">{{ String(idx + 1).padStart(2, '0') }}</span>
+            <span class="name">{{ entry.name }}</span>
+            <span class="score">{{ entry.score }}</span>
+          </li>
+        </ol>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import games from '~/games/index.js';
+import { loadScores } from '~/games/highscores.js';
+
+// Build the lookup once at module init -- avoids an O(n) scan per route
+// change. `games` is a static module-level array, so the map is stable.
+const gamesByName = new Map(games.map((g) => [g.name, g]));
 
 const route = useRoute();
 const canvasRef = ref(null);
-const showRestart = ref(false);
+const nameInput = ref(null);
+const showOverlay = ref(false);
+const needsName = ref(false);
+const isTopScore = ref(false);
+const initials = ref('');
+const highScores = ref([]);
+// Index of the entry the player just submitted, so it can be highlighted
+// on the scoreboard. -1 when there's nothing to highlight.
+const currentIndex = ref(-1);
 let instance = null;
 let GameClass = null;
+let currentName = null;
+let lastScore = 0;
 
 function destroyGame() {
   instance?.destroy();
@@ -22,14 +93,61 @@ function destroyGame() {
 function startGame() {
   const canvas = canvasRef.value;
   if (!canvas || !GameClass) return;
-  showRestart.value = false;
+  showOverlay.value = false;
+  needsName.value = false;
+  isTopScore.value = false;
+  initials.value = '';
+  highScores.value = [];
+  currentIndex.value = -1;
+  lastScore = 0;
   instance = new GameClass(canvas);
   canvas.addEventListener('gameover', onGameOver, { once: true });
   instance.start();
 }
 
-function onGameOver() {
-  showRestart.value = true;
+function onGameOver(event) {
+  showOverlay.value = true;
+  lastScore = event.detail?.score ?? 0;
+  // Always prompt for initials when the player actually scored, even if
+  // the run won't land in the top 10; saveScore filters non-qualifying
+  // entries out automatically. The label is louder when the score is the
+  // new #1.
+  needsName.value = lastScore > 0;
+  isTopScore.value =
+    lastScore > 0 && lastScore > (instance?.highScore ?? 0);
+  if (needsName.value) {
+    nextTick(() => nameInput.value?.focus());
+  } else {
+    // No entry needed; just show the existing table.
+    highScores.value = loadScores(event.detail?.gameKey ?? currentName);
+    currentIndex.value = -1;
+  }
+}
+
+function onInitialsInput(event) {
+  // Force uppercase A-Z and cap at 3 chars; mirrors highscores.sanitizeName
+  // without padding so the submit button stays disabled while incomplete.
+  const cleaned = event.target.value
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+    .slice(0, 3);
+  initials.value = cleaned;
+  event.target.value = cleaned;
+}
+
+function submitName() {
+  if (initials.value.length < 3 || !instance) return;
+  const list = instance.submitHighScore(initials.value);
+  highScores.value = list;
+  // Find the player's entry. On a tie with one or more existing scores
+  // the new entry is sorted to the bottom of the tie group (stable sort
+  // preserves insertion order, and the new entry was just pushed), so
+  // `findLastIndex` picks the player's row rather than an older identical
+  // one.
+  currentIndex.value = list.findLastIndex(
+    (e) => e.name.startsWith(initials.value) && e.score === lastScore
+  );
+  needsName.value = false;
 }
 
 function restart() {
@@ -41,16 +159,20 @@ watch(
   () => route.params.game,
   async (name) => {
     destroyGame();
-    GameClass = null;
-    showRestart.value = false;
+    showOverlay.value = false;
 
-    const game = games.find((g) => g.name === name);
+    const game = gamesByName.get(name);
     if (!game) {
       navigateTo('/', { replace: true });
       return;
     }
 
-    ({ default: GameClass } = await game.load());
+    // Avoid re-awaiting the dynamic import if the route resolved to the
+    // same game (e.g. HMR or query-only navigation).
+    if (name !== currentName || !GameClass) {
+      ({ default: GameClass } = await game.load());
+      currentName = name;
+    }
     startGame();
   },
   { immediate: true, flush: 'post' }
@@ -81,13 +203,215 @@ onBeforeUnmount(destroyGame);
   height: 100%;
 }
 
-.restart {
+.overlay {
   position: absolute;
   left: 50%;
-  top: 53%;
-  transform: translate(-50%, -50%) scaleY(1.4);
-  transform-origin: center;
+  top: 54%;
+  transform: translate(-50%, -50%);
 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  // The end-screen anchors from the top instead of being vertically
+  // centered, so the Restart button sits a fixed distance below
+  // "GAME OVER" regardless of how tall the scoreboard grows.
+  &:has(> .end-screen) {
+    top: 48%;
+    transform: translate(-50%, 0);
+  }
+
+  // The new-high-score form needs more breathing room below "GAME OVER"
+  // so the prompt text doesn't crowd the canvas-drawn title.
+  &:has(> .name-entry) {
+    top: 56%;
+  }
+}
+
+.end-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+.scoreboard {
+  list-style: none;
+  margin: 0;
+  padding: 1.25rem 2rem;
+
+  display: grid;
+  row-gap: 0.7rem;
+  min-width: 32rem;
+
+  color: #d4ffd4;
+  font-family: PublicPixel, monospace;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  text-shadow: 0 0 0.3rem currentColor;
+
+  background: rgba(0, 5, 0, 0.7);
+  border: solid 0.15rem #d4ffd4;
+  border-radius: 0.4rem;
+  box-shadow: 0 0 0.8rem rgba(212, 255, 212, 0.35);
+
+  li {
+    display: grid;
+    grid-template-columns: 5ch 1fr 9ch;
+    column-gap: 2.25rem;
+    align-items: center;
+  }
+
+  .scoreboard-header {
+    color: #ffd86b;
+    padding-bottom: 0.6rem;
+    border-bottom: dashed 0.1rem rgba(212, 255, 212, 0.4);
+
+    // Override the per-cell opacity tweaks so the header reads as a
+    // single solid amber row matching the in-game SCORE label.
+    .rank,
+    .name,
+    .score {
+      color: #ffd86b;
+      opacity: 1;
+    }
+  }
+
+  .rank {
+    text-align: right;
+    opacity: 0.7;
+  }
+
+  .name {
+    letter-spacing: 0.25rem;
+  }
+
+  .score {
+    text-align: right;
+    color: #ffd86b;
+  }
+
+  .scoreboard-row.current {
+    color: #fff;
+    text-shadow:
+      0 0 0.3rem #d4ffd4,
+      0 0 0.6rem #d4ffd4;
+    animation: row-flash 0.6s steps(1) infinite;
+
+    .rank,
+    .score {
+      color: #fff;
+      opacity: 1;
+    }
+  }
+}
+
+@keyframes row-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.name-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.25rem;
+
+  .prompt {
+    font-family: PublicPixel, monospace;
+    font-size: 1.35rem;
+    color: #d4ffd4;
+    text-shadow: 0 0 0.3rem currentColor;
+    transform: scaleY(1.4);
+    transform-origin: center;
+    white-space: nowrap;
+  }
+
+  // Stack a real input under a 3-slot visual readout. The input itself is
+  // transparent so the slot characters underneath are what the player sees;
+  // this guarantees consistent spacing and makes the "exactly 3" framing
+  // visually unmistakable.
+  .initials-wrap {
+    position: relative;
+    width: 11rem;
+    height: 4rem;
+  }
+
+  .initials {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: transparent;
+    caret-color: transparent;
+    font-family: PublicPixel, monospace;
+    font-size: 2.25rem;
+    letter-spacing: 1.4rem;
+    text-align: center;
+    text-transform: uppercase;
+    z-index: 1;
+  }
+
+  .initials-ghost {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+    pointer-events: none;
+
+    span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: PublicPixel, monospace;
+      font-size: 2.25rem;
+      line-height: 1;
+
+      color: #d4ffd4;
+      text-shadow: 0 0 0.3rem currentColor;
+      border: solid 0.2rem #d4ffd4;
+      border-radius: 0.25rem;
+      box-shadow:
+        0 0 0.6rem rgba(212, 255, 212, 0.5),
+        inset 0 0 0.5rem rgba(212, 255, 212, 0.25);
+
+      // Blink only the glyph (the inner <i>) for the slot still waiting
+      // for a character, so the box stays steady but the placeholder
+      // underscore visibly pulses.
+      i {
+        font-style: normal;
+        display: inline-block;
+      }
+
+      &.pending i {
+        animation: caret-blink 0.5s steps(1) infinite;
+      }
+    }
+  }
+}
+
+@keyframes caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.overlay-btn {
   padding: 0.75rem 1.5rem;
   font-family: PublicPixel, monospace;
   font-size: 1.5rem;
@@ -100,15 +424,22 @@ onBeforeUnmount(destroyGame);
   cursor: pointer;
   text-shadow: 0 0 0.3rem currentColor;
   box-shadow: 0 0 0.6rem rgba(212, 255, 212, 0.4);
+  transform: scaleY(1.4);
+  transform-origin: center;
   transition:
     transform 0.15s ease-out,
     box-shadow 0.15s ease-out,
     text-shadow 0.15s ease-out;
 
-  &:hover,
-  &:focus-visible {
+  &:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  &:not(:disabled):hover,
+  &:not(:disabled):focus-visible {
     outline: none;
-    transform: translate(-50%, -50%) scaleY(1.4) scale(1.1);
+    transform: scaleY(1.4) scale(1.1);
     text-shadow: 0 0 0.5rem currentColor;
     box-shadow: 0 0 1rem rgba(212, 255, 212, 0.6);
   }
