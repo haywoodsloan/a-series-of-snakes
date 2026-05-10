@@ -3,16 +3,43 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-05-10',
   devtools: { enabled: true },
   modules: ['@nuxt/fonts'],
+
   // GitHub Pages serves static files only; SPA mode + prerendered routes.
   ssr: false,
-  app: { baseURL: '/a-series-of-snakes/' },
+  app: {
+    baseURL: '/a-series-of-snakes/',
+    // Cache-bust hashed bundles aggressively; the HTML shell isn't cached.
+    buildAssetsDir: '/_nuxt/',
+  },
+
   nitro: {
     preset: 'github-pages',
+    // Strip dev-only metadata + minify static HTML/JSON output.
+    minify: true,
+    prerender: {
+      // Crawl from the index to pick up <NuxtLink> targets (per-game pages).
+      crawlLinks: true,
+      routes: ['/'],
+      failOnError: false,
+    },
   },
-  // Workaround for Nuxt 4.4.4 SPA dev regression:
-  // "Vite Node IPC socket path not configured." (nuxt/nuxt#34957)
-  // Remove once the fix from nuxt/nuxt#34959 ships in a patch release.
+
+  // Drop noisy dev features and source maps from the production bundle.
+  sourcemap: { client: false, server: false },
+  features: { devLogs: false },
   experimental: {
+    // Workaround for Nuxt 4.4.4 SPA dev regression:
+    // "Vite Node IPC socket path not configured." (nuxt/nuxt#34957)
+    // Remove once the fix from nuxt/nuxt#34959 ships in a patch release.
     viteEnvironmentApi: true,
+    payloadExtraction: true,
+  },
+
+  vite: {
+    build: {
+      cssCodeSplit: true,
+      // Inline only tiny assets; ship the rest as cacheable files.
+      assetsInlineLimit: 4096,
+    },
   },
 });
