@@ -50,7 +50,8 @@ const KEY_MAP = {
 const FG = '#d4ffd4';
 const FOOD_COLOR = '#ff6b6b';
 const PLAYFIELD_BG = '#050505';
-const SCORE_FONT = '20px PublicPixel, monospace';
+const SCORE_COLOR = '#ffd86b';
+const SCORE_FONT = '28px PublicPixel, monospace';
 const GAME_OVER_FONT = '48px PublicPixel, monospace';
 
 export default class Engine {
@@ -520,10 +521,13 @@ export default class Engine {
   _drawScore({ ox, oy, cell }) {
     const { ctx } = this;
     const pad = Math.max(4, Math.round(cell * 0.25));
-    ctx.fillStyle = FG;
+    ctx.fillStyle = SCORE_COLOR;
     ctx.font = SCORE_FONT;
     ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 6;
     ctx.fillText(`Score: ${this.score}`, ox + pad, oy + pad);
+    ctx.shadowBlur = 0;
   }
 
   _drawGameOver({ ox, oy, cell }, w, h) {

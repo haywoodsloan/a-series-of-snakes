@@ -21,7 +21,7 @@ const showBack = computed(() => route.path !== '/');
 <style lang="scss">
 html,
 body {
-  overflow: auto;
+  overflow: hidden;
 
   margin: 0;
   padding: 0;
@@ -66,6 +66,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding-right: 1rem;
+    margin-bottom: 1.5rem;
   }
 }
 

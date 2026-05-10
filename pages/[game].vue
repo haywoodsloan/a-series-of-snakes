@@ -64,12 +64,18 @@ onBeforeUnmount(destroyGame);
   flex-grow: 1;
   position: relative;
 
-  display: flex;
+  // Allow this flex item to shrink below its content's intrinsic size so
+  // the canvas can get smaller when the window shrinks.
+  min-width: 0;
+  min-height: 0;
 }
 
 .game-canvas {
-  flex-grow: 1;
-
+  // Take size from the host instead of contributing intrinsic size to it.
+  // Without this, the canvas's width/height attributes (set by the engine
+  // to match DPR-scaled pixels) act as min-content and prevent shrinking.
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;

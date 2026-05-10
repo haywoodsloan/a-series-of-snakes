@@ -9,4 +9,10 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'github-pages',
   },
+  // Workaround for Nuxt 4.4.4 SPA dev regression:
+  // "Vite Node IPC socket path not configured." (nuxt/nuxt#34957)
+  // Remove once the fix from nuxt/nuxt#34959 ships in a patch release.
+  experimental: {
+    viteEnvironmentApi: true,
+  },
 });
