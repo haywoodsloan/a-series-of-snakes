@@ -5,9 +5,11 @@ import globals from 'globals';
 export default [
   pluginJs.configs.recommended,
   prettier,
-  
+
   {
-    languageOptions: { globals: globals.node },
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
     rules: { 'no-var': 'error' },
   },
 ];

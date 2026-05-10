@@ -3,25 +3,28 @@
     <table class="grid">
       <tbody>
         <tr v-for="(row, rowIndex) in pageRows" :key="rowIndex">
-          <td v-for="(cell, colIndex) in row" :key="colIndex">
-            <button
+          <td
+            v-for="(cell, colIndex) in row"
+            :key="cell ? cell.name : `empty-${rowIndex}-${colIndex}`"
+          >
+            <NuxtLink
               v-if="cell"
               class="preview"
-              :style="snowStyle()"
-              :aria-label="cell.name"
-              @click="emit('select', cell)"
+              :to="cell.to"
+              :style="snowStyles[rowIndex * COLS + colIndex]"
+              :aria-label="cell.label"
             >
               <span
                 v-if="cell.preview"
                 class="preview-image"
                 v-html="cell.preview"
               ></span>
-              <span class="label">{{ cell.name }}</span>
-            </button>
+              <span class="label">{{ cell.label }}</span>
+            </NuxtLink>
             <span
               v-else
               class="preview"
-              :style="snowStyle()"
+              :style="snowStyles[rowIndex * COLS + colIndex]"
               aria-hidden="true"
             ></span>
           </td>
@@ -34,46 +37,56 @@
         aria-label="Previous"
         :disabled="page === 0"
         @click="page--"
-      >&lt;</button>
+      >
+        &lt;
+      </button>
       <button
         class="next"
         aria-label="Next"
         :disabled="page >= pageCount - 1"
         @click="page++"
-      >&gt;</button>
+      >
+        &gt;
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import games from './games/index.js';
+import games from '~/games/index.js';
 
-const ROWS = 4;
-const COLS = 5;
+const ROWS = 3;
+const COLS = 4;
 const PAGE_SIZE = ROWS * COLS;
 
-const emit = defineEmits(['select']);
+const toSentenceCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+// Pre-compute display data once: games is a static module-level array.
+const displayGames = games.map((g) => ({
+  ...g,
+  label: toSentenceCase(g.name),
+  to: `/${g.name}`,
+}));
 
 const page = ref(0);
-const pageCount = computed(() => Math.max(1, Math.ceil(games.length / PAGE_SIZE)));
+const pageCount = computed(() =>
+  Math.max(1, Math.ceil(displayGames.length / PAGE_SIZE))
+);
 
 const pageRows = computed(() => {
   const start = page.value * PAGE_SIZE;
-  const slice = games.slice(start, start + PAGE_SIZE);
-  const rows = [];
-  for (let r = 0; r < ROWS; r++) {
-    const row = [];
-    for (let c = 0; c < COLS; c++) {
-      row.push(slice[r * COLS + c] ?? null);
-    }
-    rows.push(row);
-  }
-  return rows;
+  return Array.from({ length: ROWS }, (_, r) =>
+    Array.from(
+      { length: COLS },
+      (_, c) => displayGames[start + r * COLS + c] ?? null
+    )
+  );
 });
 
 function snowStyle() {
   // Randomize delay, duration, and direction so each preview's static is
-  // visually independent of its neighbors.
+  // visually independent of its neighbors. Generated client-side only to
+  // avoid SSR hydration mismatches.
   const delay = -(Math.random() * 5).toFixed(2);
   const duration = (0.9 + Math.random() * 0.5).toFixed(2);
   const direction = Math.random() < 0.5 ? 'normal' : 'reverse';
@@ -83,13 +96,20 @@ function snowStyle() {
     animationDirection: direction,
   };
 }
+
+const snowStyles = shallowRef(Array.from({ length: PAGE_SIZE }, () => ({})));
+onMounted(() => {
+  snowStyles.value = Array.from({ length: PAGE_SIZE }, () => snowStyle());
+});
 </script>
 
 <style lang="scss" scoped>
 .selector {
+  flex-grow: 1;
+
   display: flex;
   overflow: hidden;
-  
+
   flex-direction: column;
   justify-content: center;
 
@@ -120,7 +140,7 @@ function snowStyle() {
 
     padding: 0.75rem 1.25rem;
     font-family: PublicPixel, monospace;
-    font-size: 2.5rem;
+    font-size: 3.25rem;
     line-height: 1;
 
     background: transparent;
@@ -153,17 +173,72 @@ function snowStyle() {
 }
 
 @keyframes snow {
-  0%   { background-position:   17px   83px,  -91px   42px,   54px -127px; }
-  10%  { background-position: -134px   29px,   62px -108px,  -19px   77px; }
-  20%  { background-position:   88px -156px, -147px    8px,  113px   34px; }
-  30%  { background-position:  -52px  121px,   39px  167px,  -86px -141px; }
-  40%  { background-position:  173px   -7px, -118px  -94px,   27px   62px; }
-  50%  { background-position:  -98px  -64px,  142px   55px, -161px   18px; }
-  60%  { background-position:   46px  138px,   -3px -129px,   91px  -48px; }
-  70%  { background-position: -157px  -41px,  108px   76px, -132px  152px; }
-  80%  { background-position:   71px   97px, -176px  -23px,    8px  -89px; }
-  90%  { background-position: -119px -113px,   24px  131px,  149px   41px; }
-  100% { background-position:   62px   38px,  -84px  -71px,  -47px  104px; }
+  0% {
+    background-position:
+      17px 83px,
+      -91px 42px,
+      54px -127px;
+  }
+  10% {
+    background-position:
+      -134px 29px,
+      62px -108px,
+      -19px 77px;
+  }
+  20% {
+    background-position:
+      88px -156px,
+      -147px 8px,
+      113px 34px;
+  }
+  30% {
+    background-position:
+      -52px 121px,
+      39px 167px,
+      -86px -141px;
+  }
+  40% {
+    background-position:
+      173px -7px,
+      -118px -94px,
+      27px 62px;
+  }
+  50% {
+    background-position:
+      -98px -64px,
+      142px 55px,
+      -161px 18px;
+  }
+  60% {
+    background-position:
+      46px 138px,
+      -3px -129px,
+      91px -48px;
+  }
+  70% {
+    background-position:
+      -157px -41px,
+      108px 76px,
+      -132px 152px;
+  }
+  80% {
+    background-position:
+      71px 97px,
+      -176px -23px,
+      8px -89px;
+  }
+  90% {
+    background-position:
+      -119px -113px,
+      24px 131px,
+      149px 41px;
+  }
+  100% {
+    background-position:
+      62px 38px,
+      -84px -71px,
+      -47px 104px;
+  }
 }
 
 .preview {
@@ -176,6 +251,8 @@ function snowStyle() {
   cursor: pointer;
   overflow: hidden;
   isolation: isolate;
+  text-decoration: none;
+  color: inherit;
 
   border: solid 0.15rem #2a2a2a;
   border-radius: 12% / 18%;
@@ -246,7 +323,7 @@ function snowStyle() {
     z-index: 1;
 
     font-family: PublicPixel, monospace;
-    font-size: 1.1rem;
+    font-size: 1.4rem;
     text-align: center;
     color: #d4ffd4;
     text-shadow:

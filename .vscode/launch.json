@@ -17,7 +17,8 @@
       "request": "launch",
       "url": "http://localhost:3000",
       "webRoot": "${workspaceFolder}",
-      "preLaunchTask": "npm: dev"
+      "preLaunchTask": "npm: dev",
+      "postDebugTask": "Terminate: npm: dev"
     },
     {
       "name": "Nuxt: Dev (client - Edge)",
@@ -25,7 +26,8 @@
       "request": "launch",
       "url": "http://localhost:3000",
       "webRoot": "${workspaceFolder}",
-      "preLaunchTask": "npm: dev"
+      "preLaunchTask": "npm: dev",
+      "postDebugTask": "Terminate: npm: dev"
     },
     {
       "name": "Nuxt: Dev (client - Firefox)",
@@ -33,8 +35,8 @@
       "request": "launch",
       "url": "http://localhost:3000",
       "webRoot": "${workspaceFolder}",
-      "reAttach": true,
-      "preLaunchTask": "npm: dev"
+      "preLaunchTask": "npm: dev",
+      "postDebugTask": "Terminate: npm: dev"
     },
     {
       "name": "Nuxt: Build",

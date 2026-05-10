@@ -55,6 +55,21 @@
       "isBackground": true,
       "problemMatcher": [],
       "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "Terminate: npm: dev",
+      "command": "echo ${input:terminateDev}",
+      "type": "shell",
+      "problemMatcher": [],
+      "presentation": { "reveal": "never", "panel": "shared" }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "terminateDev",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "npm: dev"
     }
   ]
 }
