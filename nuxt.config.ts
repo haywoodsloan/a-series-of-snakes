@@ -10,6 +10,15 @@ export default defineNuxtConfig({
     baseURL: '/a-series-of-snakes/',
     // Cache-bust hashed bundles aggressively; the HTML shell isn't cached.
     buildAssetsDir: '/_nuxt/',
+    head: {
+      title: 'A Series of Snakes',
+      // SVG favicon (snake from the chase preview). Modern browsers will
+      // prefer the SVG; the legacy .ico stays as a fallback.
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/a-series-of-snakes/favicon.svg' },
+        { rel: 'alternate icon', href: '/a-series-of-snakes/favicon.ico' },
+      ],
+    },
   },
 
   nitro: {

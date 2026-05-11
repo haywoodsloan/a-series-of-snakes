@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Snake-only favicon: mirrors the body shape from chase.svg, but
+       repositioned and scaled to fill the icon's square viewBox so the
+       glyph reads at small sizes (16/32px). No food, no motion lines. -->
+  <g fill="#d4ffd4">
+    <rect x="10" y="60" width="15" height="15" />
+    <rect x="25" y="60" width="15" height="15" />
+    <rect x="40" y="60" width="15" height="15" />
+    <rect x="40" y="45" width="15" height="15" />
+    <rect x="40" y="30" width="15" height="15" />
+    <rect x="55" y="30" width="15" height="15" />
+    <rect x="70" y="30" width="15" height="15" />
+  </g>
+</svg>

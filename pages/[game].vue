@@ -73,6 +73,16 @@ const gamesByName = new Map(games.map((g) => [g.name, g]));
 const route = useRoute();
 const canvasRef = ref(null);
 const nameInput = ref(null);
+
+// Per-game tab title: "A Series of Snakes | <Game>" (capitalized game name).
+useHead({
+  title: () => {
+    const name = String(route.params.game ?? '');
+    if (!name) return 'A Series of Snakes';
+    const label = name.charAt(0).toUpperCase() + name.slice(1);
+    return `A Series of Snakes | ${label}`;
+  },
+});
 const showOverlay = ref(false);
 const needsName = ref(false);
 const isTopScore = ref(false);
