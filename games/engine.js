@@ -60,7 +60,6 @@ const PLAYFIELD_BG = '#050505';
 const SCORE_COLOR = '#ffd86b';
 const HIGH_COLOR = '#ff9e6b';
 const SCORE_FONT = '28px PublicPixel, monospace';
-const GAME_OVER_FONT = '48px PublicPixel, monospace';
 
 export default class Engine {
   /**
@@ -124,7 +123,15 @@ export default class Engine {
       this._resizePending = true;
       requestAnimationFrame(() => {
         this._resizePending = false;
-        if (this._syncCanvasSize()) this._dirty = true;
+        if (this._syncCanvasSize()) {
+          // Repaint synchronously in this same frame. Setting the canvas
+          // backing-store width/height clears the bitmap, and the run
+          // loop's own RAF may already be queued (and may have run before
+          // this callback), so deferring via the dirty flag risks
+          // presenting a blank frame -- visible as a one-frame flicker.
+          this._dirty = false;
+          this.render();
+        }
       });
     });
     this._syncCanvasSize();
@@ -184,12 +191,14 @@ export default class Engine {
     this._running = false;
     cancelAnimationFrame(this._raf);
     window.removeEventListener('keydown', this._onKeyDown);
-    this._resizeObserver.disconnect();
+    // Keep the ResizeObserver attached so the post-game canvas (the dim
+    // overlay over the playfield) still repaints if the viewport changes.
   }
 
   destroy() {
     this.stop();
     this._inputHandlers.clear();
+    this._resizeObserver?.disconnect();
     this._resizeObserver = null;
   }
 
@@ -615,16 +624,9 @@ export default class Engine {
     ctx.shadowBlur = 0;
   }
 
-  _drawGameOver({ ox, oy, cell }, w, h) {
+  _drawGameOver({ ox, oy }, w, h) {
     const { ctx } = this;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(ox, oy, w, h);
-
-    ctx.fillStyle = FG;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = GAME_OVER_FONT;
-    ctx.fillText('GAME OVER', ox + w / 2, oy + h / 2 - cell * 1.5);
-    ctx.textAlign = 'start';
   }
 }

@@ -21,8 +21,6 @@ const showBack = computed(() => route.path !== '/');
 <style lang="scss">
 html,
 body {
-  overflow: hidden;
-
   margin: 0;
   padding: 0;
 
@@ -30,6 +28,19 @@ body {
   min-height: 800px;
 
   background-color: black;
+}
+
+html {
+  // Let the page scroll when the viewport is smaller than the minimum
+  // playable area on either axis, instead of clipping the game.
+  overflow: auto;
+}
+
+body {
+  // Body fills at least the viewport so the CRT can size to 100% without
+  // collapsing, but is free to grow past it on either axis.
+  min-height: 100vh;
+  min-width: 100vw;
 }
 
 @font-face {
@@ -54,6 +65,8 @@ button {
 
 .crt {
   height: 100vh;
+  min-width: 1300px;
+  min-height: 800px;
   background:
     url('/image/noise.png'),
     radial-gradient(

@@ -2,6 +2,7 @@
   <div class="game-host">
     <canvas ref="canvasRef" class="game-canvas" />
     <div v-if="showOverlay" class="overlay">
+      <div class="game-over" aria-label="Game over">GAME OVER</div>
       <form
         v-if="needsName"
         class="name-entry"
@@ -206,26 +207,24 @@ onBeforeUnmount(destroyGame);
 .overlay {
   position: absolute;
   left: 50%;
-  top: 54%;
+  top: 50%;
   transform: translate(-50%, -50%);
 
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2.5rem;
+}
 
-  // The end-screen anchors from the top instead of being vertically
-  // centered, so the Restart button sits a fixed distance below
-  // "GAME OVER" regardless of how tall the scoreboard grows.
-  &:has(> .end-screen) {
-    top: 48%;
-    transform: translate(-50%, 0);
-  }
-
-  // The new-high-score form needs more breathing room below "GAME OVER"
-  // so the prompt text doesn't crowd the canvas-drawn title.
-  &:has(> .name-entry) {
-    top: 56%;
-  }
+.game-over {
+  font-family: PublicPixel, monospace;
+  font-size: 3rem;
+  line-height: 1;
+  color: #d4ffd4;
+  text-shadow: 0 0 0.5rem currentColor;
+  letter-spacing: 0.25rem;
+  white-space: nowrap;
 }
 
 .end-screen {
@@ -264,8 +263,25 @@ onBeforeUnmount(destroyGame);
 
   .scoreboard-header {
     color: #ffd86b;
-    padding-bottom: 0.6rem;
-    border-bottom: dashed 0.1rem rgba(212, 255, 212, 0.4);
+    padding-bottom: 1.4rem;
+    position: relative;
+
+    &::after {
+      content: '..........................................';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      font-family: PublicPixel, monospace;
+      font-size: 1.75rem;
+      line-height: 1;
+      letter-spacing: 0.1rem;
+      color: #ff9e6b;
+      text-shadow: 0 0 0.3rem rgba(255, 158, 107, 0.5);
+      pointer-events: none;
+    }
 
     // Override the per-cell opacity tweaks so the header reads as a
     // single solid amber row matching the in-game SCORE label.
