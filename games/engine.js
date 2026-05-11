@@ -25,7 +25,7 @@ import {
   qualifies,
   saveScore,
   topScore,
-} from './highscores.js';
+} from '../utils/highscores.js';
 
 const DIRECTION_DELTAS = {
   up: { x: 0, y: -1 },

@@ -5,7 +5,7 @@
       <div class="header">
         <h1 class="title">A Series of Snakes</h1>
         <NuxtLink v-if="showBack" to="/" class="back" aria-label="Back" draggable="false">
-          <span class="chevron" aria-hidden="true">&lt;</span> Back
+          <span class="chevron" aria-hidden="true">&lt;</span> BACK
         </NuxtLink>
       </div>
       <NuxtPage />
@@ -41,6 +41,10 @@ body {
   // collapsing, but is free to grow past it on either axis.
   min-height: 100vh;
   min-width: 100vw;
+
+  // SHOUTING MODE: every glyph in the app rendered in PublicPixel reads
+  // better in caps, so just uppercase everything globally.
+  text-transform: uppercase;
 }
 
 @font-face {

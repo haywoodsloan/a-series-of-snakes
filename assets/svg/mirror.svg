@@ -1,0 +1,41 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  preserveAspectRatio="xMidYMid meet"
+  width="100%"
+  height="100%"
+>
+  <!-- Two snakes mirrored across the vertical center line. Cells are
+       9.6x9.6 on a 10x10 grid; left snake's head at col 2, mirrored to
+       col 7 on the right. -->
+  <g fill="#d4ffd4">
+    <!-- Left snake (head facing right, toward the axis) -->
+    <rect x="31.2" y="40.8" width="9.6" height="9.6" />
+    <rect x="21.6" y="40.8" width="9.6" height="9.6" />
+    <rect x="12.0" y="40.8" width="9.6" height="9.6" />
+    <rect x="12.0" y="50.4" width="9.6" height="9.6" />
+  </g>
+
+  <g fill="#6bd4ff">
+    <!-- Right snake (head facing left, toward the axis) -->
+    <rect x="60.0" y="40.8" width="9.6" height="9.6" />
+    <rect x="69.6" y="40.8" width="9.6" height="9.6" />
+    <rect x="79.2" y="40.8" width="9.6" height="9.6" />
+    <rect x="79.2" y="50.4" width="9.6" height="9.6" />
+  </g>
+
+  <!-- Dashed mirror axis -->
+  <line
+    x1="50" y1="6" x2="50" y2="94"
+    stroke="#d4ffd4"
+    stroke-width="0.6"
+    stroke-dasharray="2 2"
+    opacity="0.45"
+  />
+
+  <!-- Food pellet on a valid grid cell (i=2, j=2). Cells live at
+       x = 2.4 + 9.6*i, so the mirror axis at x=50 lies on the seam
+       between cells i=4 and i=5; this pellet sits two cells to the
+       left of the axis with its center at x=26.4. -->
+  <rect x="21.6" y="21.6" width="9.6" height="9.6" fill="#ff6b6b" />
+</svg>

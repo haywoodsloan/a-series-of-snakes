@@ -60,7 +60,7 @@ const PAGE_SIZE = ROWS * COLS;
 // component just references it.
 const displayGames = games.map((g) => ({
   ...g,
-  label: g.name ? g.name.charAt(0).toUpperCase() + g.name.slice(1) : g.name,
+  label: g.name ? g.name.toUpperCase() : g.name,
   to: `/${g.name}`,
 }));
 const PAGE_COUNT = Math.max(1, Math.ceil(displayGames.length / PAGE_SIZE));
@@ -116,7 +116,10 @@ onMounted(() => {
   flex-grow: 1;
 
   display: flex;
-  overflow: hidden;
+  // Was `overflow: hidden`, but that clipped the preview buttons' hover
+  // glow (box-shadow) on the right edge of the rightmost item in each
+  // row. Let the glow extend past the column instead.
+  overflow: visible;
 
   flex-direction: column;
   justify-content: center;

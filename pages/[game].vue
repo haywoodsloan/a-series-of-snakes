@@ -31,11 +31,11 @@
           </div>
         </div>
         <button type="submit" class="overlay-btn" :disabled="initials.length < 3">
-          Save
+          ENTER
         </button>
       </form>
       <div v-else class="end-screen">
-        <button class="overlay-btn restart" @click="restart">Restart</button>
+        <button ref="restartBtn" class="overlay-btn restart" @click="restart">PLAY AGAIN</button>
         <ol
           v-if="highScores.length"
           class="scoreboard"
@@ -64,7 +64,7 @@
 
 <script setup>
 import games from '~/games/index.js';
-import { loadScores } from '~/games/highscores.js';
+import { loadScores } from '~/utils/highscores.js';
 
 // Build the lookup once at module init -- avoids an O(n) scan per route
 // change. `games` is a static module-level array, so the map is stable.
@@ -73,6 +73,7 @@ const gamesByName = new Map(games.map((g) => [g.name, g]));
 const route = useRoute();
 const canvasRef = ref(null);
 const nameInput = ref(null);
+const restartBtn = ref(null);
 
 // Per-game tab title: "A Series of Snakes | <Game>" (capitalized game name).
 useHead({
@@ -159,6 +160,9 @@ function submitName() {
     (e) => e.name.startsWith(initials.value) && e.score === lastScore
   );
   needsName.value = false;
+  // Hand focus to the Play Again button so Enter/Space immediately
+  // restarts the run without an extra click.
+  nextTick(() => restartBtn.value?.focus());
 }
 
 function restart() {
