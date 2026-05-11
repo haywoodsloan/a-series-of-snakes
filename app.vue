@@ -57,9 +57,10 @@ button {
   background:
     url('/image/noise.png'),
     radial-gradient(
-      circle at center,
-      rgba(0, 90, 0, 1) 0%,
-      rgba(0, 5, 0, 1) 100%
+      ellipse at center,
+      rgba(20, 65, 38, 1) 0%,
+      rgba(12, 45, 25, 1) 55%,
+      rgba(4, 18, 10, 1) 100%
     );
 }
 

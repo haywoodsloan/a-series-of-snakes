@@ -72,11 +72,14 @@
   left: 0;
   bottom: 0;
   right: 0;
-  background: rgba(18, 16, 16, 0.1);
+  // Slightly warmed tint so the flicker reads like a CRT cathode glow
+  // instead of a flat gray overlay.
+  background: rgba(28, 22, 18, 0.12);
   opacity: 0;
-  z-index: 2;
+  z-index: 3;
   pointer-events: none;
   animation: flicker 0.15s infinite;
+  mix-blend-mode: multiply;
 }
 
 .crt::before {
@@ -87,12 +90,61 @@
   left: 0;
   bottom: 0;
   right: 0;
-  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  // Stack three CRT artifacts in one layer:
+  //  1. tight horizontal scanlines (~1px dark / 1px transparent),
+  //  2. an aperture-grille RGB subpixel mask (red/green/blue triads),
+  //  3. a deep radial vignette + outer black ring suggesting glass edges.
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 80%,
+      rgba(0, 0, 0, 0.15) 95%,
+      rgba(0, 0, 0, 0.35) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.55) 0,
+      rgba(0, 0, 0, 0.55) 1px,
+      transparent 1px,
+      transparent 2px
+    ),
+    linear-gradient(
+      to right,
+      rgba(255, 80, 80, 0.18) 0,
+      rgba(255, 80, 80, 0.18) 1px,
+      rgba(80, 255, 80, 0.18) 1px,
+      rgba(80, 255, 80, 0.18) 2px,
+      rgba(80, 120, 255, 0.18) 2px,
+      rgba(80, 120, 255, 0.18) 3px
+    );
   z-index: 2;
-  background-size: 100% 2px, 3px 100%;
   pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+// Persistent subtle horizontal jitter -- evokes the unstable horizontal
+// hold on an old set without being disorienting. Sub-pixel translation
+// keeps text legible.
+@keyframes hsync-jitter {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  17%      { transform: translate3d(0.4px, 0, 0); }
+  34%      { transform: translate3d(-0.3px, 0, 0); }
+  56%      { transform: translate3d(0.2px, 0, 0); }
+  78%      { transform: translate3d(-0.4px, 0, 0); }
 }
 
 .crt {
-  filter: blur(1px);
+  // A whisper of blur for that out-of-focus phosphor look, plus a warm
+  // saturation boost so green snakes feel like they're glowing on the
+  // tube instead of a flat LCD.
+  filter: blur(0.6px) saturate(1.1) contrast(1.05);
+  animation: hsync-jitter 2.4s steps(8) infinite;
+
+  // Outer black mask to suggest the rounded glass tube + bezel. Pure CSS
+  // approximation via a thick inset shadow on a separate ::after stack
+  // would be ideal, but inset shadow on the existing .crt root reads as
+  // a vignette and avoids adding more DOM.
+  box-shadow:
+    inset 0 0 3.5rem rgba(0, 0, 0, 0.3),
+    inset 0 0 1rem rgba(0, 0, 0, 0.18);
 }
