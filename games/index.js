@@ -10,13 +10,13 @@ export default [
     preview: classic,
   },
   {
-    name: 'inverted',
-    load: () => import('./inverted.js'),
-    preview: inverted,
-  },
-  {
     name: 'chase',
     load: () => import('./chase.js'),
     preview: chase,
+  },
+  {
+    name: 'inverted',
+    load: () => import('./inverted.js'),
+    preview: inverted,
   },
 ];
