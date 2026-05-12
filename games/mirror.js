@@ -18,13 +18,16 @@ const MIRROR_DIR = {
 
 export default class Mirror extends Engine {
   constructor(canvas) {
-    super(canvas, { tickRate: BASE_TICK_RATE });
+    // Force an even number of columns so every cell has a distinct mirror
+    // cell across the vertical center line -- with the engine's default 25
+    // columns the center column would map to itself and break the "snakes
+    // never share a cell" invariant.
+    super(canvas, { cols: 24, tickRate: BASE_TICK_RATE });
 
     // Place the primary snake on the left half so its mirror lands on the
-    // right half without overlap. With cols=20 (even) every cell has a
-    // distinct mirror cell. The mirror is offset by exactly half the grid
-    // height (with wrap) so the two snakes are always as far apart on the
-    // y-axis as the board allows -- no immediate same-row collisions.
+    // right half without overlap. The mirror is offset by exactly half the
+    // grid height (with wrap) so the two snakes are always as far apart on
+    // the y-axis as the board allows -- no immediate same-row collisions.
     const half = Math.floor(this.cols / 2);
     const head = {
       x: Math.floor(Math.random() * half),

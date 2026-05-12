@@ -11,13 +11,19 @@
  *
  * @typedef {'wasd' | 'arrows'} InputKind
  *
- * @typedef {'self' | 'snake'} CollisionType
+ * @typedef {'self' | 'snake' | 'wall'} CollisionType
  *
  * @typedef {Object} Collision
  * @property {Snake} snake             The snake whose head moved into something.
  * @property {CollisionType} type      What was hit.
  * @property {Snake} [other]           For type='snake', the snake that was hit.
+ * @property {Wall} [wall]             For type='wall', the wall that was hit.
  * @property {Point} at                The cell the head ended up in.
+ *
+ * @typedef {Object} Wall
+ * @property {number} x                Grid column.
+ * @property {number} y                Grid row.
+ * @property {string} [color]          Optional fill color (defaults to WALL).
  */
 
 import {
@@ -26,6 +32,7 @@ import {
   HIGH as HIGH_COLOR,
   PLAYFIELD_BG,
   SCORE as SCORE_COLOR,
+  WALL as WALL_COLOR,
 } from '../utils/colors.js';
 import {
   loadScores,
@@ -67,11 +74,11 @@ export default class Engine {
   /**
    * @param {HTMLCanvasElement} canvas
    * @param {Object} [options]
-   * @param {number} [options.cols=20]    Grid width in cells.
-   * @param {number} [options.rows=20]    Grid height in cells.
+   * @param {number} [options.cols=25]    Grid width in cells.
+   * @param {number} [options.rows=25]    Grid height in cells.
    * @param {number} [options.tickRate=8] Logic ticks per second.
    */
-  constructor(canvas, { cols = 20, rows = 20, tickRate = 8, gameKey } = {}) {
+  constructor(canvas, { cols = 25, rows = 25, tickRate = 8, gameKey } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
 
@@ -89,6 +96,8 @@ export default class Engine {
     this.snakes = [];
     /** @type {Food[]} */
     this.food = [];
+    /** @type {Wall[]} */
+    this.walls = [];
     this.score = 0;
     this.gameOver = false;
 
@@ -321,8 +330,18 @@ export default class Engine {
    * @returns {Collision | null}
    */
   _detectCollision(snake, at = snake.segments[0]) {
-    // Self: head shares a cell with any other segment of the same snake.
     const headKey = at.x * this.rows + at.y;
+
+    // Walls: head shares a cell with any static obstacle. Checked first
+    // so wall hits take priority over self/other collisions on the same
+    // tick (a head moving into a wall should always read as a wall death).
+    for (const wall of this.walls) {
+      if (wall.x * this.rows + wall.y === headKey) {
+        return { snake, type: 'wall', wall, at };
+      }
+    }
+
+    // Self: head shares a cell with any other segment of the same snake.
     const segs = snake.segments;
     for (let i = 1; i < segs.length; i++) {
       const seg = segs[i];
@@ -384,6 +403,255 @@ export default class Engine {
     return cell ? this.addFood(cell, color) : null;
   }
 
+  // ---------- Walls ----------
+
+  /**
+   * Add a static wall obstacle at the given cell. Wall cells block snake
+   * heads (a hit produces a `'wall'` collision) and are excluded from
+   * random spawn placement for both food and snakes.
+   * @param {Point} at
+   * @param {string} [color]
+   * @returns {Wall}
+   */
+  addWall(at, color) {
+    const wall = { x: at.x, y: at.y, color };
+    this.walls.push(wall);
+    return wall;
+  }
+
+  /**
+   * Sprinkle random walls across the grid until `ratio` of the playfield is
+   * filled (defaults to 20%). Walls never overlap existing snakes, food, or
+   * each other, and respect `clearance` -- a Chebyshev-distance buffer of
+   * cells kept clear around every snake segment so the spawn area isn't a
+   * death trap.
+   *
+   * Placement grows connected clusters from random seeds via orthogonal
+   * expansion. Wall groups are guaranteed to contain at least 2 cells (a
+   * seed that can't grow is rolled back) and stay one cell thick with no
+   * loops.
+   * @param {Object} [opts]
+   * @param {number} [opts.ratio=0.2]            Fraction of the grid to fill.
+   * @param {number} [opts.clearance=2]          Cells of buffer around snake heads/bodies.
+   * @param {number} [opts.clusterSize=6]        Average cells per cluster (>= 2).
+   * @param {string} [opts.color]                Optional fill color.
+   * @returns {Wall[]}                           The walls added by this call.
+   */
+  addRandomWalls({
+    ratio = 0.2,
+    clearance = 2,
+    clusterSize = 6,
+    color,
+  } = {}) {
+    const total = this.cols * this.rows;
+    const target = Math.floor(total * ratio);
+    if (target <= 0) return [];
+
+    // Build a set of cells that are forbidden for wall placement.
+    const blocked = new Set();
+    for (const w of this.walls) blocked.add(w.x * this.rows + w.y);
+    for (const p of this.food) blocked.add(p.x * this.rows + p.y);
+    for (const snake of this.snakes) {
+      for (const seg of snake.segments) {
+        // Reserve a Chebyshev-distance ball around each segment so the
+        // snake has room to start moving without immediately hitting a
+        // wall it can't see coming.
+        for (let dx = -clearance; dx <= clearance; dx++) {
+          for (let dy = -clearance; dy <= clearance; dy++) {
+            const x = seg.x + dx;
+            const y = seg.y + dy;
+            if (x < 0 || y < 0 || x >= this.cols || y >= this.rows) continue;
+            blocked.add(x * this.rows + y);
+          }
+        }
+      }
+    }
+
+    const placed = new Set();
+    const added = [];
+    const place = (idx) => {
+      const cell = { x: Math.floor(idx / this.rows), y: idx % this.rows };
+      added.push(this.addWall(cell, color));
+      placed.add(idx);
+    };
+    const available = (idx) => !blocked.has(idx) && !placed.has(idx);
+    const neighbors = (idx) => {
+      const x = Math.floor(idx / this.rows);
+      const y = idx % this.rows;
+      const out = [];
+      if (x > 0) out.push((x - 1) * this.rows + y);
+      if (x < this.cols - 1) out.push((x + 1) * this.rows + y);
+      if (y > 0) out.push(x * this.rows + (y - 1));
+      if (y < this.rows - 1) out.push(x * this.rows + (y + 1));
+      return out;
+    };
+
+    // Reject placements that would create a 2x2 (or thicker) wall block,
+    // which keeps every wall group exactly one cell thick. The candidate
+    // at (x, y) participates in four 2x2 boxes -- one for each corner of
+    // the box that (x, y) can fill. If all three other corners of any of
+    // those boxes are already walls, placing here would close a 2x2.
+    const isWall = (x, y) => {
+      if (x < 0 || y < 0 || x >= this.cols || y >= this.rows) return false;
+      return placed.has(x * this.rows + y);
+    };
+    const wouldThicken = (idx) => {
+      const x = Math.floor(idx / this.rows);
+      const y = idx % this.rows;
+      // (dx, dy) ranges over the offset of the *other* corner on the
+      // diagonal from (x, y); the two side neighbors of that diagonal
+      // pair complete the 2x2 box.
+      for (const [dx, dy] of [
+        [-1, -1],
+        [1, -1],
+        [-1, 1],
+        [1, 1],
+      ]) {
+        if (
+          isWall(x + dx, y + dy) &&
+          isWall(x + dx, y) &&
+          isWall(x, y + dy)
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+    const canPlace = (idx) => available(idx) && !wouldThicken(idx);
+
+    // Union-find over placed wall cells, used to reject any placement that
+    // would close a loop in the wall graph. Loops (or near-loops, since a
+    // closed corridor of walls is only one cell away from a full cycle) can
+    // trap the snake or fence off whole regions of the board, so wall
+    // groups are constrained to trees.
+    /** @type {Map<number, number>} */
+    const parent = new Map();
+    const find = (i) => {
+      let r = i;
+      while (parent.get(r) !== r) r = parent.get(r);
+      // Path compression so repeated queries during cluster growth stay flat.
+      let n = i;
+      while (parent.get(n) !== r) {
+        const next = parent.get(n);
+        parent.set(n, r);
+        n = next;
+      }
+      return r;
+    };
+    const wouldLoop = (idx) => {
+      const x = Math.floor(idx / this.rows);
+      const y = idx % this.rows;
+      const roots = new Set();
+      for (const [dx, dy] of [
+        [-1, 0],
+        [1, 0],
+        [0, -1],
+        [0, 1],
+      ]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (!isWall(nx, ny)) continue;
+        const root = find(nx * this.rows + ny);
+        if (roots.has(root)) return true; // two neighbors already connected
+        roots.add(root);
+      }
+      return false;
+    };
+    const canPlaceStrict = (idx) =>
+      canPlace(idx) && !wouldLoop(idx);
+
+    // Wraps `place` to keep the union-find in sync. Each new cell starts
+    // in its own set and is unioned with every adjacent placed cell.
+    const placeAndUnion = (idx) => {
+      place(idx);
+      parent.set(idx, idx);
+      const x = Math.floor(idx / this.rows);
+      const y = idx % this.rows;
+      for (const [dx, dy] of [
+        [-1, 0],
+        [1, 0],
+        [0, -1],
+        [0, 1],
+      ]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (!isWall(nx, ny)) continue;
+        const a = find(idx);
+        const b = find(nx * this.rows + ny);
+        if (a !== b) parent.set(a, b);
+      }
+    };
+
+    // Pool of all candidate indices, shuffled once. Cluster seeds and
+    // singleton picks both pull from the front of this list, skipping
+    // entries that got consumed by an earlier cluster's growth.
+    const pool = [];
+    for (let i = 0; i < total; i++) {
+      if (!blocked.has(i)) pool.push(i);
+    }
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    let poolIdx = 0;
+    const nextSeed = () => {
+      while (poolIdx < pool.length) {
+        const idx = pool[poolIdx++];
+        if (canPlaceStrict(idx)) return idx;
+      }
+      return -1;
+    };
+
+    // Grow clusters via random orthogonal expansion. Each seed targets
+    // ~clusterSize cells (geometric-ish: half stop early, half keep going)
+    // by repeatedly picking a random open neighbor of any placed cell in
+    // the cluster. A seed that can't reach at least 2 cells is rolled back
+    // so the playfield never has lone single-cell walls.
+    let remaining = target;
+    while (remaining > 0) {
+      const seed = nextSeed();
+      if (seed === -1) break;
+      placeAndUnion(seed);
+      remaining--;
+
+      const frontier = neighbors(seed).filter(canPlaceStrict);
+      // Randomized target size around `clusterSize`, minimum 2 so a seed
+      // never stands alone.
+      const want = Math.max(
+        2,
+        Math.round(clusterSize * (0.5 + Math.random()))
+      );
+      let grown = 1;
+      while (grown < want && remaining > 0 && frontier.length) {
+        const pick = Math.floor(Math.random() * frontier.length);
+        const idx = frontier[pick];
+        frontier[pick] = frontier[frontier.length - 1];
+        frontier.pop();
+        if (!canPlaceStrict(idx)) continue;
+        placeAndUnion(idx);
+        remaining--;
+        grown++;
+        for (const n of neighbors(idx)) {
+          if (canPlaceStrict(n)) frontier.push(n);
+        }
+      }
+
+      // Rollback: if this seed couldn't recruit a neighbor (boxed in by
+      // blocked/placed cells or thickness/loop constraints), undo it so
+      // the wall list doesn't end up with a stranded single cell.
+      if (grown < 2) {
+        added.pop();
+        placed.delete(seed);
+        parent.delete(seed);
+        remaining++;
+      }
+    }
+
+    return added;
+  }
+
+  // ---------- Random placement ----------
+
   /**
    * Pick a uniformly random cell that contains no snake segment or food.
    * Returns `null` if the grid is full.
@@ -397,15 +665,32 @@ export default class Engine {
       }
     }
     for (const p of this.food) occupied.add(p.x * this.rows + p.y);
+    for (const w of this.walls) occupied.add(w.x * this.rows + w.y);
+
+    // Cells orthogonally adjacent to a wall are reserved as a "buffer" so
+    // food can't spawn right next to a spike -- which would either be an
+    // automatic death or feel cheap to grab. The buffer is preferred but
+    // not required: if filtering it out leaves no cells, fall back to any
+    // non-occupied cell so callers always get a result on a non-full board.
+    const buffered = new Set(occupied);
+    for (const w of this.walls) {
+      if (w.x > 0) buffered.add((w.x - 1) * this.rows + w.y);
+      if (w.x < this.cols - 1) buffered.add((w.x + 1) * this.rows + w.y);
+      if (w.y > 0) buffered.add(w.x * this.rows + (w.y - 1));
+      if (w.y < this.rows - 1) buffered.add(w.x * this.rows + (w.y + 1));
+    }
 
     const total = this.cols * this.rows;
     if (occupied.size >= total) return null;
+
+    const useBuffer = buffered.size < total;
+    const exclude = useBuffer ? buffered : occupied;
 
     // Reservoir-style pick: scan random offsets until we find a free one.
     // For typical board fill ratios this terminates in O(1) expected time.
     while (true) {
       const i = Math.floor(Math.random() * total);
-      if (!occupied.has(i)) {
+      if (!exclude.has(i)) {
         return { x: Math.floor(i / this.rows), y: i % this.rows };
       }
     }
@@ -504,6 +789,7 @@ export default class Engine {
     ctx.fillRect(ox, oy, w, h);
 
     this._drawBorder(layout, w, h);
+    this._drawWalls(layout);
     this._drawFood(layout);
     this._drawSnakes(layout);
     this._drawScore(layout);
@@ -546,6 +832,166 @@ export default class Engine {
     // outer edge is lw outside the grid (centerline at -lw/2).
     ctx.strokeRect(ox - lw / 2, oy - lw / 2, w + lw, h + lw);
     ctx.shadowBlur = 0;
+  }
+
+  _drawWalls({ cell, ox, oy }) {
+    if (!this.walls.length) return;
+    const { ctx } = this;
+
+    // Each wall is a square "core" ringed by a row of small triangular
+    // spikes on every side, so it reads as a hazard from any approach
+    // direction. Adjacent walls visually merge: the core extends to fill
+    // the cell edge on any side touching another wall, and spikes on that
+    // side are omitted so a run of walls reads as one connected obstacle.
+    // Group walls by color into a single Path2D per color so each render
+    // is one fill call regardless of wall count.
+    const inset = cell * 0.22; // core padding from cell edges
+    const tip = cell * 0.16; // how far spikes reach outside the core
+    const spikesPerSide = 4; // count of small triangles along each edge
+
+    // Lookup of occupied wall cells by `x * rows + y` so neighbor checks
+    // are O(1) instead of O(walls) per side.
+    const wallSet = new Set();
+    for (const w of this.walls) wallSet.add(w.x * this.rows + w.y);
+    const hasWall = (x, y) =>
+      x >= 0 &&
+      y >= 0 &&
+      x < this.cols &&
+      y < this.rows &&
+      wallSet.has(x * this.rows + y);
+
+    /** @type {Map<string, Path2D>} */
+    const buckets = new Map();
+    for (const w of this.walls) {
+      const color = w.color ?? WALL_COLOR;
+      let path = buckets.get(color);
+      if (!path) {
+        path = new Path2D();
+        buckets.set(color, path);
+      }
+      const x = ox + w.x * cell;
+      const y = oy + w.y * cell;
+
+      // Neighbor presence drives both core extension and spike omission.
+      const nUp = hasWall(w.x, w.y - 1);
+      const nDown = hasWall(w.x, w.y + 1);
+      const nLeft = hasWall(w.x - 1, w.y);
+      const nRight = hasWall(w.x + 1, w.y);
+
+      // Core edges: pull a side flush with the cell edge whenever there's
+      // a neighbor in that direction so the two cores' fills meet.
+      const l = nLeft ? x : x + inset;
+      const r = nRight ? x + cell : x + cell - inset;
+      const t = nUp ? y : y + inset;
+      const b = nDown ? y + cell : y + cell - inset;
+
+      // Inner concave corners (two sides merged, diagonal empty) get a
+      // 45-degree chamfer instead of a square step so the wall group
+      // perimeter reads as faceted rather than blocky. The core is built
+      // as a polygon (clockwise from top-left) with each corner either a
+      // single point or two chamfer points.
+      const chTL = nUp && nLeft && !hasWall(w.x - 1, w.y - 1);
+      const chTR = nUp && nRight && !hasWall(w.x + 1, w.y - 1);
+      const chBR = nDown && nRight && !hasWall(w.x + 1, w.y + 1);
+      const chBL = nDown && nLeft && !hasWall(w.x - 1, w.y + 1);
+
+      if (chTL) {
+        path.moveTo(x + inset, y);
+      } else {
+        path.moveTo(l, t);
+      }
+      if (chTR) {
+        path.lineTo(x + cell - inset, y);
+        path.lineTo(x + cell, y + inset);
+      } else {
+        path.lineTo(r, t);
+      }
+      if (chBR) {
+        path.lineTo(x + cell, y + cell - inset);
+        path.lineTo(x + cell - inset, y + cell);
+      } else {
+        path.lineTo(r, b);
+      }
+      if (chBL) {
+        path.lineTo(x + inset, y + cell);
+        path.lineTo(x, y + cell - inset);
+      } else {
+        path.lineTo(l, b);
+      }
+      if (chTL) {
+        path.lineTo(x, y + inset);
+      }
+      path.closePath();
+
+      // Spikes line every *unmerged* edge of the (possibly extended) core,
+      // so a wall group's outer perimeter is fully toothed -- including
+      // the corner sections of cells that share one edge with a neighbor
+      // but expose the perpendicular edges. Triangle count scales with
+      // the edge length so spike size stays consistent across solo and
+      // merged walls.
+      const horiz = r - l;
+      const vert = b - t;
+      const horizCount = Math.max(
+        1,
+        Math.round((spikesPerSide * horiz) / (cell - 2 * inset))
+      );
+      const vertCount = Math.max(
+        1,
+        Math.round((spikesPerSide * vert) / (cell - 2 * inset))
+      );
+      const hStep = horiz / horizCount;
+      const vStep = vert / vertCount;
+
+      if (!nUp) {
+        for (let i = 0; i < horizCount; i++) {
+          const a = l + i * hStep;
+          const b1 = a + hStep;
+          const mid = a + hStep / 2;
+          path.moveTo(a, t);
+          path.lineTo(b1, t);
+          path.lineTo(mid, t - tip);
+          path.closePath();
+        }
+      }
+      if (!nDown) {
+        for (let i = 0; i < horizCount; i++) {
+          const a = l + i * hStep;
+          const b1 = a + hStep;
+          const mid = a + hStep / 2;
+          path.moveTo(a, b);
+          path.lineTo(b1, b);
+          path.lineTo(mid, b + tip);
+          path.closePath();
+        }
+      }
+      if (!nLeft) {
+        for (let i = 0; i < vertCount; i++) {
+          const a = t + i * vStep;
+          const b1 = a + vStep;
+          const mid = a + vStep / 2;
+          path.moveTo(l, a);
+          path.lineTo(l, b1);
+          path.lineTo(l - tip, mid);
+          path.closePath();
+        }
+      }
+      if (!nRight) {
+        for (let i = 0; i < vertCount; i++) {
+          const a = t + i * vStep;
+          const b1 = a + vStep;
+          const mid = a + vStep / 2;
+          path.moveTo(r, a);
+          path.lineTo(r, b1);
+          path.lineTo(r + tip, mid);
+          path.closePath();
+        }
+      }
+    }
+
+    for (const [color, path] of buckets) {
+      ctx.fillStyle = color;
+      ctx.fill(path);
+    }
   }
 
   _drawFood({ cell, ox, oy }) {

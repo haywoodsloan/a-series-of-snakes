@@ -27,3 +27,7 @@ export const HIGH = '#ff9e6b';
 // Secondary snake tint, used when a game has more than one snake so the
 // two read as visually distinct on the playfield.
 export const SNAKE_ALT = '#6bd4ff';
+
+// Wall/spike obstacle color. Light grey so spikes read as inert hazards
+// rather than another snake.
+export const WALL = '#bfbfbf';

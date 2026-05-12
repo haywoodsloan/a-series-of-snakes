@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { FG, FOOD, SNAKE_ALT } from '~/utils/colors.js';
+import { FG, FOOD, SNAKE_ALT, WALL } from '~/utils/colors.js';
 
 const route = useRoute();
 const showBack = computed(() => route.path !== '/');
@@ -92,6 +92,11 @@ svg {
     fill: v-bind(FOOD);
     stroke: v-bind(FOOD);
     filter: drop-shadow(0 0 0.2rem v-bind(FOOD));
+  }
+  .wall {
+    // Walls render fill-only on the canvas (no border/glow), so the
+    // preview class skips stroke and drop-shadow to match.
+    fill: v-bind(WALL);
   }
 }
 </style>
