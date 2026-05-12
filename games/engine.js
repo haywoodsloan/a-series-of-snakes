@@ -638,9 +638,15 @@ export default class Engine {
 
       // Rollback: if this seed couldn't recruit a neighbor (boxed in by
       // blocked/placed cells or thickness/loop constraints), undo it so
-      // the wall list doesn't end up with a stranded single cell.
+      // the wall list doesn't end up with a stranded single cell. The
+      // seed was already appended to `this.walls` via `addWall`, so it
+      // must be popped there too -- otherwise rolled-back seeds linger as
+      // invisible-to-the-placer orphans that still get rendered, and the
+      // outer loop keeps trying new seeds against an ever-growing wall
+      // count until the candidate pool is exhausted.
       if (grown < 2) {
         added.pop();
+        this.walls.pop();
         placed.delete(seed);
         parent.delete(seed);
         remaining++;
