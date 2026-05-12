@@ -21,6 +21,13 @@
  */
 
 import {
+  FG,
+  FOOD as FOOD_COLOR,
+  HIGH as HIGH_COLOR,
+  PLAYFIELD_BG,
+  SCORE as SCORE_COLOR,
+} from '../utils/colors.js';
+import {
   loadScores,
   qualifies,
   saveScore,
@@ -54,11 +61,6 @@ const KEY_MAP = {
   KeyD: { kind: 'wasd', dir: 'right' },
 };
 
-const FG = '#d4ffd4';
-const FOOD_COLOR = '#ff6b6b';
-const PLAYFIELD_BG = '#050505';
-const SCORE_COLOR = '#ffd86b';
-const HIGH_COLOR = '#ff9e6b';
 const SCORE_FONT = '28px PublicPixel, monospace';
 
 export default class Engine {

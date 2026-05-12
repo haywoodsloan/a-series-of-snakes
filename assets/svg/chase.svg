@@ -6,7 +6,7 @@
   height="100%"
 >
   <!-- Snake body (head-first): a short S-curve, distinct from classic. -->
-  <g fill="#d4ffd4">
+  <g class="fg">
     <!-- Head -->
     <rect x="12" y="60" width="9.6" height="9.6" />
     <!-- Body -->
@@ -21,12 +21,12 @@
   <!-- Motion lines trailing the food, indicating it's fleeing right.
        Constrained to the food's own bounding box: width <= 9.6, stroke
        narrower than the food, and offset well clear of the snake head. -->
-  <g stroke="#ff6b6b" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.6">
+  <g class="food" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.6">
     <line x1="69.6" y1="42.6" x2="78" y2="42.6" />
     <line x1="69.6" y1="45.6" x2="78" y2="45.6" />
     <line x1="69.6" y1="48.6" x2="78" y2="48.6" />
   </g>
 
   <!-- Food pellet, on the same grid row the snake body is heading along. -->
-  <rect x="79.2" y="40.8" width="9.6" height="9.6" fill="#ff6b6b" />
+  <rect class="food" x="79.2" y="40.8" width="9.6" height="9.6" />
 </svg>

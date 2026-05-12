@@ -4,7 +4,13 @@
     <div class="main">
       <div class="header">
         <h1 class="title">A Series of Snakes</h1>
-        <NuxtLink v-if="showBack" to="/" class="back" aria-label="Back" draggable="false">
+        <NuxtLink
+          v-if="showBack"
+          to="/"
+          class="back"
+          aria-label="Back"
+          draggable="false"
+        >
           <span class="chevron" aria-hidden="true">&lt;</span> BACK
         </NuxtLink>
       </div>
@@ -14,6 +20,8 @@
 </template>
 
 <script setup>
+import { FG, FOOD, SNAKE_ALT } from '~/utils/colors.js';
+
 const route = useRoute();
 const showBack = computed(() => route.path !== '/');
 </script>
@@ -62,6 +70,30 @@ button {
   -webkit-user-drag: none;
   user-select: none;
 }
+
+svg {
+  // Inline SVG previews use class names that map 1:1 to the color variables
+  // in utils/colors.js. Each class sets both `fill` and `stroke`; SVG elements
+  // opt into one or the other via the `fill`/`stroke` attribute (e.g. a
+  // stroked line sets `fill="none"` and lets `stroke` come from the class).
+  // A matching colored drop-shadow gives each element a glow in its own hue
+  // (snake bodies green, food red, etc.) instead of one flat green halo.
+  .fg {
+    fill: v-bind(FG);
+    stroke: v-bind(FG);
+    filter: drop-shadow(0 0 0.2rem v-bind(FG));
+  }
+  .snake-alt {
+    fill: v-bind(SNAKE_ALT);
+    stroke: v-bind(SNAKE_ALT);
+    filter: drop-shadow(0 0 0.2rem v-bind(SNAKE_ALT));
+  }
+  .food {
+    fill: v-bind(FOOD);
+    stroke: v-bind(FOOD);
+    filter: drop-shadow(0 0 0.2rem v-bind(FOOD));
+  }
+}
 </style>
 
 <style lang="scss" scoped>
@@ -94,7 +126,7 @@ button {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-right: 1rem;
+    padding-right: 2rem;
     margin-bottom: 1.5rem;
   }
 }
@@ -103,11 +135,11 @@ button {
   font-family: PublicPixel;
   font-size: 3.5rem;
 
-  color: #d4ffd4;
+  color: v-bind(FG);
   text-shadow: 0 0 0.3rem currentColor;
 
   margin: 0;
-  padding: 1rem;
+  padding: 1rem 1rem 1rem 1.5rem;
 }
 
 .back {
@@ -115,7 +147,7 @@ button {
   font-size: 1.75rem;
   line-height: 1;
 
-  color: #d4ffd4;
+  color: v-bind(FG);
   text-decoration: none;
   text-shadow: 0 0 0.3rem currentColor;
 

@@ -6,7 +6,7 @@
   height="100%"
 >
   <!-- Snake body (head-first); each cell is 9.6x9.6 on a 10x10 grid offset by 2 -->
-  <g fill="#d4ffd4">
+  <g class="fg">
     <!-- Head -->
     <rect x="21.6" y="12" width="9.6" height="9.6" />
     <!-- Body, going right then down -->
@@ -20,5 +20,5 @@
   </g>
 
   <!-- Food pellet -->
-  <rect x="79.2" y="60" width="9.6" height="9.6" fill="#ff6b6b" />
+  <rect class="food" x="79.2" y="60" width="9.6" height="9.6" />
 </svg>

@@ -396,7 +396,6 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  filter: drop-shadow(0 0 0.5rem rgba(212, 255, 212, 0.6));
 
   :deep(svg) {
     max-width: 100%;

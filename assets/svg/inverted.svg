@@ -7,7 +7,7 @@
 >
   <!-- Mirror of classic.svg across the vertical axis. -->
   <g transform="translate(100 0) scale(-1 1)">
-    <g fill="#d4ffd4">
+    <g class="fg">
       <rect x="21.6" y="12" width="9.6" height="9.6" />
       <rect x="31.2" y="12" width="9.6" height="9.6" />
       <rect x="40.8" y="12" width="9.6" height="9.6" />
@@ -17,6 +17,6 @@
       <rect x="50.4" y="40.8" width="9.6" height="9.6" />
       <rect x="60.0" y="40.8" width="9.6" height="9.6" />
     </g>
-    <rect x="79.2" y="60" width="9.6" height="9.6" fill="#ff6b6b" />
+    <rect class="food" x="79.2" y="60" width="9.6" height="9.6" />
   </g>
 </svg>

@@ -1,3 +1,4 @@
+import { SNAKE_ALT } from '../utils/colors.js';
 import Engine from './engine.js';
 
 // Speed ramp tuning, mirrored from classic.js.
@@ -41,7 +42,7 @@ export default class Mirror extends Engine {
       head: mirrorHead,
       length: 3,
       direction: 'left',
-      color: '#6bd4ff',
+      color: SNAKE_ALT,
     });
     this._started = false;
 
