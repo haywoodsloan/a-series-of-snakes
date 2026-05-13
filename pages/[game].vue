@@ -3,11 +3,7 @@
     <canvas ref="canvasRef" class="game-canvas" />
     <div v-if="showOverlay" class="overlay">
       <div class="game-over" aria-label="Game over">GAME OVER</div>
-      <form
-        v-if="needsName"
-        class="name-entry"
-        @submit.prevent="submitName"
-      >
+      <form v-if="needsName" class="name-entry" @submit.prevent="submitName">
         <label class="prompt">{{
           isTopScore ? 'New high score! Enter initials' : 'Enter initials'
         }}</label>
@@ -25,17 +21,29 @@
             @input="onInitialsInput"
           />
           <div class="initials-ghost" aria-hidden="true">
-            <span :class="{ pending: initials.length === 0 }"><i>{{ initials[0] || '_' }}</i></span>
-            <span :class="{ pending: initials.length === 1 }"><i>{{ initials[1] || '_' }}</i></span>
-            <span :class="{ pending: initials.length === 2 }"><i>{{ initials[2] || '_' }}</i></span>
+            <span :class="{ pending: initials.length === 0 }"
+              ><i>{{ initials[0] || '_' }}</i></span
+            >
+            <span :class="{ pending: initials.length === 1 }"
+              ><i>{{ initials[1] || '_' }}</i></span
+            >
+            <span :class="{ pending: initials.length === 2 }"
+              ><i>{{ initials[2] || '_' }}</i></span
+            >
           </div>
         </div>
-        <button type="submit" class="overlay-btn" :disabled="initials.length < 3">
+        <button
+          type="submit"
+          class="overlay-btn"
+          :disabled="initials.length < 3"
+        >
           ENTER
         </button>
       </form>
       <div v-else class="end-screen">
-        <button ref="restartBtn" class="overlay-btn restart" @click="restart">PLAY AGAIN</button>
+        <button ref="restartBtn" class="overlay-btn restart" @click="restart">
+          PLAY AGAIN
+        </button>
         <ol
           v-if="highScores.length"
           class="scoreboard"
@@ -125,8 +133,7 @@ function onGameOver(event) {
   // entries out automatically. The label is louder when the score is the
   // new #1.
   needsName.value = lastScore > 0;
-  isTopScore.value =
-    lastScore > 0 && lastScore > (instance?.highScore ?? 0);
+  isTopScore.value = lastScore > 0 && lastScore > (instance?.highScore ?? 0);
   if (needsName.value) {
     nextTick(() => nameInput.value?.focus());
   } else {

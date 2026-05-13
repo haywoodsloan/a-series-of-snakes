@@ -1,0 +1,30 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  preserveAspectRatio="xMidYMid meet"
+  width="100%"
+  height="100%"
+>
+  <!-- Two independent snakes on a 10x10 grid (cells 9.6x9.6, offset 2.4).
+       Each is drawn in a distinct shape (not a mirror of the other) so the
+       preview reads as "two independent players" rather than the symmetric
+       mirror game. -->
+  <g class="fg">
+    <!-- Left / WASD snake: L-shape bending down -->
+    <rect x="12.0" y="31.2" width="9.6" height="9.6" />
+    <rect x="12.0" y="40.8" width="9.6" height="9.6" />
+    <rect x="21.6" y="40.8" width="9.6" height="9.6" />
+    <rect x="31.2" y="40.8" width="9.6" height="9.6" />
+  </g>
+
+  <g class="snake-alt">
+    <!-- Right / arrows snake: S-shape across two rows -->
+    <rect x="79.2" y="50.4" width="9.6" height="9.6" />
+    <rect x="69.6" y="50.4" width="9.6" height="9.6" />
+    <rect x="69.6" y="60.0" width="9.6" height="9.6" />
+    <rect x="60.0" y="60.0" width="9.6" height="9.6" />
+  </g>
+
+  <!-- Shared food pellet (eating it grows both snakes). -->
+  <rect class="food" x="50.4" y="21.6" width="9.6" height="9.6" />
+</svg>

@@ -65,7 +65,7 @@
 }
 
 .crt::after {
-  content: " ";
+  content: ' ';
   display: block;
   position: absolute;
   top: 0;
@@ -83,7 +83,7 @@
 }
 
 .crt::before {
-  content: " ";
+  content: ' ';
   display: block;
   position: absolute;
   top: 0;
@@ -126,11 +126,22 @@
 // hold on an old set without being disorienting. Sub-pixel translation
 // keeps text legible.
 @keyframes hsync-jitter {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  17%      { transform: translate3d(0.4px, 0, 0); }
-  34%      { transform: translate3d(-0.3px, 0, 0); }
-  56%      { transform: translate3d(0.2px, 0, 0); }
-  78%      { transform: translate3d(-0.4px, 0, 0); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  17% {
+    transform: translate3d(0.4px, 0, 0);
+  }
+  34% {
+    transform: translate3d(-0.3px, 0, 0);
+  }
+  56% {
+    transform: translate3d(0.2px, 0, 0);
+  }
+  78% {
+    transform: translate3d(-0.4px, 0, 0);
+  }
 }
 
 .crt {

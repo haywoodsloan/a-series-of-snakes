@@ -1,6 +1,7 @@
-import classic from '~/assets/svg/classic.svg?raw';
-import inverted from '~/assets/svg/inverted.svg?raw';
 import chase from '~/assets/svg/chase.svg?raw';
+import classic from '~/assets/svg/classic.svg?raw';
+import duo from '~/assets/svg/duo.svg?raw';
+import inverted from '~/assets/svg/inverted.svg?raw';
 import mirror from '~/assets/svg/mirror.svg?raw';
 import spikes from '~/assets/svg/spikes.svg?raw';
 
@@ -17,18 +18,23 @@ export default [
     preview: chase,
   },
   {
-    name: 'inverted',
-    load: () => import('./inverted.js'),
-    preview: inverted,
-  },
-  {
     name: 'mirror',
     load: () => import('./mirror.js'),
     preview: mirror,
   },
   {
+    name: 'duo',
+    load: () => import('./duo.js'),
+    preview: duo,
+  },
+  {
     name: 'spikes',
     load: () => import('./spikes.js'),
     preview: spikes,
+  },
+  {
+    name: 'inverted',
+    load: () => import('./inverted.js'),
+    preview: inverted,
   },
 ];

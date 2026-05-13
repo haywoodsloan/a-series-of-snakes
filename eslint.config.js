@@ -3,6 +3,7 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
 export default [
+  { ignores: ['.nuxt/**', '.output/**', 'dist/**', 'node_modules/**'] },
   pluginJs.configs.recommended,
   prettier,
 
@@ -10,6 +11,12 @@ export default [
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },
     },
-    rules: { 'no-var': 'error' },
+    rules: {
+      'no-var': 'error',
+      'no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+    },
   },
 ];

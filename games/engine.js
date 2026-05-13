@@ -25,7 +25,6 @@
  * @property {number} y                Grid row.
  * @property {string} [color]          Optional fill color (defaults to WALL).
  */
-
 import {
   FG,
   FOOD as FOOD_COLOR,
@@ -437,12 +436,7 @@ export default class Engine {
    * @param {string} [opts.color]                Optional fill color.
    * @returns {Wall[]}                           The walls added by this call.
    */
-  addRandomWalls({
-    ratio = 0.2,
-    clearance = 2,
-    clusterSize = 6,
-    color,
-  } = {}) {
+  addRandomWalls({ ratio = 0.2, clearance = 2, clusterSize = 6, color } = {}) {
     const total = this.cols * this.rows;
     const target = Math.floor(total * ratio);
     if (target <= 0) return [];
@@ -507,11 +501,7 @@ export default class Engine {
         [-1, 1],
         [1, 1],
       ]) {
-        if (
-          isWall(x + dx, y + dy) &&
-          isWall(x + dx, y) &&
-          isWall(x, y + dy)
-        ) {
+        if (isWall(x + dx, y + dy) && isWall(x + dx, y) && isWall(x, y + dy)) {
           return true;
         }
       }
@@ -557,8 +547,7 @@ export default class Engine {
       }
       return false;
     };
-    const canPlaceStrict = (idx) =>
-      canPlace(idx) && !wouldLoop(idx);
+    const canPlaceStrict = (idx) => canPlace(idx) && !wouldLoop(idx);
 
     // Wraps `place` to keep the union-find in sync. Each new cell starts
     // in its own set and is unioned with every adjacent placed cell.
@@ -617,10 +606,7 @@ export default class Engine {
       const frontier = neighbors(seed).filter(canPlaceStrict);
       // Randomized target size around `clusterSize`, minimum 2 so a seed
       // never stands alone.
-      const want = Math.max(
-        2,
-        Math.round(clusterSize * (0.5 + Math.random()))
-      );
+      const want = Math.max(2, Math.round(clusterSize * (0.5 + Math.random())));
       let grown = 1;
       while (grown < want && remaining > 0 && frontier.length) {
         const pick = Math.floor(Math.random() * frontier.length);

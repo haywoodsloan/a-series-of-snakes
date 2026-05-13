@@ -15,7 +15,11 @@ export default defineNuxtConfig({
       // SVG favicon (snake from the chase preview). Modern browsers will
       // prefer the SVG; the legacy .ico stays as a fallback.
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/a-series-of-snakes/favicon.svg' },
+        {
+          rel: 'icon',
+          type: 'image/svg+xml',
+          href: '/a-series-of-snakes/favicon.svg',
+        },
         { rel: 'alternate icon', href: '/a-series-of-snakes/favicon.ico' },
       ],
     },

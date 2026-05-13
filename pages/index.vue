@@ -1,7 +1,10 @@
 <template>
   <div class="selector">
     <div class="grid">
-      <template v-for="(cell, i) in pageCells" :key="cell ? cell.name : `e-${i}`">
+      <template
+        v-for="(cell, i) in pageCells"
+        :key="cell ? cell.name : `e-${i}`"
+      >
         <NuxtLink
           v-if="cell"
           class="preview"
@@ -83,9 +86,7 @@ const pageCells = computed(() => {
 // the page's lifetime; generated client-side only to avoid SSR hydration
 // mismatches.
 const snowStyles = shallowRef(new Array(PAGE_SIZE).fill(null).map(() => ({})));
-const traceStyles = shallowRef(
-  new Array(PAGE_SIZE).fill(null).map(() => ({}))
-);
+const traceStyles = shallowRef(new Array(PAGE_SIZE).fill(null).map(() => ({})));
 onMounted(() => {
   const styles = new Array(PAGE_SIZE);
   const traces = new Array(PAGE_SIZE);
@@ -402,5 +403,4 @@ onMounted(() => {
     max-height: 100%;
   }
 }
-
 </style>

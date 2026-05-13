@@ -29,8 +29,7 @@ export function loadScores(gameKey) {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter(
-        (e) =>
-          e && typeof e.name === 'string' && Number.isFinite(e.score)
+        (e) => e && typeof e.name === 'string' && Number.isFinite(e.score)
       )
       .slice(0, MAX_ENTRIES);
   } catch {
