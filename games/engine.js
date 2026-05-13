@@ -39,6 +39,7 @@ import {
   saveScore,
   topScore,
 } from '../utils/highscores.js';
+import { onSettingsChange, settings } from '../utils/settings.js';
 
 const DIRECTION_DELTAS = {
   up: { x: 0, y: -1 },
@@ -69,15 +70,25 @@ const KEY_MAP = {
 
 const SCORE_FONT = '28px PublicPixel, monospace';
 
+// Shared speed-ramp tuning used by the default `onEat` so every game with
+// the standard "eat a pellet -> grow + speed up" loop gets identical
+// pacing without each subclass redeclaring the constants.
+export const BASE_TICK_RATE = 8;
+export const SPEED_STEP = 0.4;
+export const MAX_TICK_RATE = 20;
+
 export default class Engine {
   /**
    * @param {HTMLCanvasElement} canvas
    * @param {Object} [options]
-   * @param {number} [options.cols=25]    Grid width in cells.
-   * @param {number} [options.rows=25]    Grid height in cells.
-   * @param {number} [options.tickRate=8] Logic ticks per second.
+   * @param {number} [options.cols=25]                  Grid width in cells.
+   * @param {number} [options.rows=25]                  Grid height in cells.
+   * @param {number} [options.tickRate=BASE_TICK_RATE]  Logic ticks per second.
    */
-  constructor(canvas, { cols = 25, rows = 25, tickRate = 8, gameKey } = {}) {
+  constructor(
+    canvas,
+    { cols = 25, rows = 25, tickRate = BASE_TICK_RATE, gameKey } = {}
+  ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
 
@@ -104,7 +115,19 @@ export default class Engine {
     this._raf = 0;
     this._lastFrame = 0;
     this._tickAccum = 0;
-    this._tickInterval = 1 / tickRate;
+    // The game's *intrinsic* tick rate (without the user's speed multiplier).
+    // `_tickInterval` is always `1 / (_baseTickRate * settings.baseSpeed)` so
+    // global speed changes apply live without forcing each game subclass to
+    // know about them.
+    this._baseTickRate = tickRate;
+    this._tickInterval = 1 / (tickRate * settings.baseSpeed);
+    // React to live settings changes (speed slider, grid toggle). Speed
+    // recalc reuses setTickRate so the accumulator-clamping logic there
+    // also runs; grid changes just mark the canvas dirty for a redraw.
+    this._unsubscribeSettings = onSettingsChange(() => {
+      this.setTickRate(this._baseTickRate);
+      this._dirty = true;
+    });
     // Hard cap on time advanced per frame so a tab-resume (where RAF was
     // throttled to ~1fps) can't fire dozens of catch-up ticks in one frame
     // and freeze the game ("spiral of death").
@@ -210,17 +233,22 @@ export default class Engine {
     this._inputHandlers.clear();
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
+    this._unsubscribeSettings?.();
+    this._unsubscribeSettings = null;
   }
 
   /**
    * Set how many logic ticks fire per second. Takes effect immediately;
    * any partially accumulated tick time is kept so the next tick lands at
-   * the new cadence without skipping or double-stepping.
-   * @param {number} tickRate Ticks per second; clamped to a positive value.
+   * the new cadence without skipping or double-stepping. The result is
+   * always scaled by the user's global `settings.baseSpeed` multiplier.
+   * @param {number} tickRate Intrinsic ticks per second; clamped positive.
    */
   setTickRate(tickRate) {
     const safe = Math.max(0.0001, Number(tickRate) || 0);
-    this._tickInterval = 1 / safe;
+    this._baseTickRate = safe;
+    const effective = safe * Math.max(0.0001, settings.baseSpeed);
+    this._tickInterval = 1 / effective;
     // Don't let a stale accumulator immediately fire many catch-up ticks
     // after a large slowdown -> speedup transition.
     if (this._tickAccum > this._tickInterval) {
@@ -680,12 +708,24 @@ export default class Engine {
 
     // Reservoir-style pick: scan random offsets until we find a free one.
     // For typical board fill ratios this terminates in O(1) expected time.
-    while (true) {
+    // After a budget of random tries (proportional to fill density), fall
+    // back to a deterministic scan so an almost-full board can't spin.
+    const free = total - exclude.size;
+    const budget = Math.max(16, Math.min(256, free * 4));
+    for (let attempt = 0; attempt < budget; attempt++) {
       const i = Math.floor(Math.random() * total);
       if (!exclude.has(i)) {
         return { x: Math.floor(i / this.rows), y: i % this.rows };
       }
     }
+    // Deterministic fallback: pick the k-th free cell where k is a random
+    // index in [0, free). Guaranteed O(total) and always returns a result.
+    let k = Math.floor(Math.random() * free);
+    for (let i = 0; i < total; i++) {
+      if (exclude.has(i)) continue;
+      if (k-- === 0) return { x: Math.floor(i / this.rows), y: i % this.rows };
+    }
+    return null;
   }
 
   // ---------- Input ----------
@@ -713,15 +753,24 @@ export default class Engine {
   update(_dt) {}
 
   /**
-   * Called when a snake's head lands on a food pellet. Default behavior
-   * grows the snake by one segment and increments the score. Subclasses
-   * can override to spawn replacement food, change scoring, etc.
+   * Called when a snake's head lands on a food pellet. The default
+   * implementation handles the canonical "grow + spawn replacement +
+   * ramp speed" loop used by classic, chase, inverted, and spikes:
+   *   1. Grow the snake by one segment, increment score.
+   *   2. Spawn a replacement pellet at a random empty cell.
+   *   3. Bump the tick rate toward MAX_TICK_RATE.
+   * Subclasses can override (e.g. multi-snake shared growth) or extend
+   * by calling `super.onEat(snake, food)` first.
    * @param {Snake} snake
    * @param {Food} food
    */
   onEat(snake, _food) {
     snake.length += 1;
     this.score += 1;
+    this.addRandomFood();
+    this.setTickRate(
+      Math.min(MAX_TICK_RATE, BASE_TICK_RATE + this.score * SPEED_STEP)
+    );
   }
 
   /**
@@ -780,6 +829,8 @@ export default class Engine {
     ctx.fillStyle = PLAYFIELD_BG;
     ctx.fillRect(ox, oy, w, h);
 
+    if (settings.gridLines) this._drawGrid(layout, w, h);
+
     this._drawBorder(layout, w, h);
     this._drawWalls(layout);
     this._drawFood(layout);
@@ -824,6 +875,29 @@ export default class Engine {
     // outer edge is lw outside the grid (centerline at -lw/2).
     ctx.strokeRect(ox - lw / 2, oy - lw / 2, w + lw, h + lw);
     ctx.shadowBlur = 0;
+  }
+
+  // Faint cell-boundary lines. Half-pixel offsets keep the 1px strokes
+  // crisp on integer-aligned grids.
+  _drawGrid({ cell, ox, oy }, w, h) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.strokeStyle = FG;
+    ctx.globalAlpha = 0.12;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 1; i < this.cols; i++) {
+      const x = Math.round(ox + i * cell) + 0.5;
+      ctx.moveTo(x, oy);
+      ctx.lineTo(x, oy + h);
+    }
+    for (let j = 1; j < this.rows; j++) {
+      const y = Math.round(oy + j * cell) + 0.5;
+      ctx.moveTo(ox, y);
+      ctx.lineTo(ox + w, y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   _drawWalls({ cell, ox, oy }) {

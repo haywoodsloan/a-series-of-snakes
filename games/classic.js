@@ -1,15 +1,8 @@
 import Engine from './engine.js';
 
-// Speed ramp tuning. The snake starts at BASE_TICK_RATE ticks/sec and each
-// pellet bumps the rate by SPEED_STEP, capped at MAX_TICK_RATE so the game
-// stays playable on very long runs.
-const BASE_TICK_RATE = 8;
-const SPEED_STEP = 0.4;
-const MAX_TICK_RATE = 20;
-
 export default class Classic extends Engine {
   constructor(canvas) {
-    super(canvas, { tickRate: BASE_TICK_RATE });
+    super(canvas);
 
     // Spawn one snake with target length 3 at a random spot. While idle the
     // snake is just a single visible cell; once the player picks a
@@ -35,14 +28,5 @@ export default class Classic extends Engine {
   update() {
     if (!this._started || this.gameOver) return;
     this.stepAll();
-  }
-
-  onEat(snake, food) {
-    super.onEat(snake, food);
-    this.addRandomFood();
-    // Ramp speed with score; cap so the simulation stays solvable.
-    this.setTickRate(
-      Math.min(MAX_TICK_RATE, BASE_TICK_RATE + this.score * SPEED_STEP)
-    );
   }
 }

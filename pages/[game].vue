@@ -72,7 +72,8 @@
 
 <script setup>
 import games from '~/games/index.js';
-import { loadScores } from '~/utils/highscores.js';
+import { FG, HIGH, SCORE } from '~/utils/colors.js';
+import { loadScores, sanitizeInitials } from '~/utils/highscores.js';
 
 // Build the lookup once at module init -- avoids an O(n) scan per route
 // change. `games` is a static module-level array, so the map is stable.
@@ -144,12 +145,10 @@ function onGameOver(event) {
 }
 
 function onInitialsInput(event) {
-  // Force uppercase A-Z and cap at 3 chars; mirrors highscores.sanitizeName
-  // without padding so the submit button stays disabled while incomplete.
-  const cleaned = event.target.value
-    .toUpperCase()
-    .replace(/[^A-Z]/g, '')
-    .slice(0, 3);
+  // Strip to uppercase A-Z, max 3 chars, with no padding -- shared with
+  // the persistence layer so the on-screen form and the saved name stay
+  // identically constrained.
+  const cleaned = sanitizeInitials(event.target.value);
   initials.value = cleaned;
   event.target.value = cleaned;
 }
@@ -242,7 +241,7 @@ onBeforeUnmount(destroyGame);
   font-family: PublicPixel, monospace;
   font-size: 3rem;
   line-height: 1;
-  color: #d4ffd4;
+  color: v-bind(FG);
   text-shadow: 0 0 0.5rem currentColor;
   letter-spacing: 0.25rem;
   white-space: nowrap;
@@ -264,14 +263,14 @@ onBeforeUnmount(destroyGame);
   row-gap: 0.7rem;
   min-width: 32rem;
 
-  color: #d4ffd4;
+  color: v-bind(FG);
   font-family: PublicPixel, monospace;
   font-size: 1.5rem;
   line-height: 1.2;
   text-shadow: 0 0 0.3rem currentColor;
 
   background: rgba(0, 5, 0, 0.7);
-  border: solid 0.15rem #d4ffd4;
+  border: solid 0.15rem v-bind(FG);
   border-radius: 0.4rem;
   box-shadow: 0 0 0.8rem rgba(212, 255, 212, 0.35);
 
@@ -283,7 +282,7 @@ onBeforeUnmount(destroyGame);
   }
 
   .scoreboard-header {
-    color: #ffd86b;
+    color: v-bind(SCORE);
     padding-bottom: 1.4rem;
     position: relative;
 
@@ -299,7 +298,7 @@ onBeforeUnmount(destroyGame);
       font-size: 1.75rem;
       line-height: 1;
       letter-spacing: 0.1rem;
-      color: #ff9e6b;
+      color: v-bind(HIGH);
       text-shadow: 0 0 0.3rem rgba(255, 158, 107, 0.5);
       pointer-events: none;
     }
@@ -309,7 +308,7 @@ onBeforeUnmount(destroyGame);
     .rank,
     .name,
     .score {
-      color: #ffd86b;
+      color: v-bind(SCORE);
       opacity: 1;
     }
   }
@@ -325,14 +324,14 @@ onBeforeUnmount(destroyGame);
 
   .score {
     text-align: right;
-    color: #ffd86b;
+    color: v-bind(SCORE);
   }
 
   .scoreboard-row.current {
     color: #fff;
     text-shadow:
-      0 0 0.3rem #d4ffd4,
-      0 0 0.6rem #d4ffd4;
+      0 0 0.3rem v-bind(FG),
+      0 0 0.6rem v-bind(FG);
     animation: row-flash 0.6s steps(1) infinite;
 
     .rank,
@@ -362,7 +361,7 @@ onBeforeUnmount(destroyGame);
   .prompt {
     font-family: PublicPixel, monospace;
     font-size: 1.35rem;
-    color: #d4ffd4;
+    color: v-bind(FG);
     text-shadow: 0 0 0.3rem currentColor;
     transform: scaleY(1.4);
     transform-origin: center;
@@ -415,9 +414,9 @@ onBeforeUnmount(destroyGame);
       font-size: 2.25rem;
       line-height: 1;
 
-      color: #d4ffd4;
+      color: v-bind(FG);
       text-shadow: 0 0 0.3rem currentColor;
-      border: solid 0.2rem #d4ffd4;
+      border: solid 0.2rem v-bind(FG);
       border-radius: 0.25rem;
       box-shadow:
         0 0 0.6rem rgba(212, 255, 212, 0.5),
@@ -454,9 +453,9 @@ onBeforeUnmount(destroyGame);
   font-size: 1.5rem;
   line-height: 1;
 
-  color: #d4ffd4;
+  color: v-bind(FG);
   background: transparent;
-  border: solid 0.15rem #d4ffd4;
+  border: solid 0.15rem v-bind(FG);
   border-radius: 0.25rem;
   cursor: pointer;
   text-shadow: 0 0 0.3rem currentColor;

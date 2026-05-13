@@ -53,6 +53,7 @@
 
 <script setup>
 import games from '~/games/index.js';
+import { FG } from '~/utils/colors.js';
 
 const ROWS = 3;
 const COLS = 4;
@@ -152,7 +153,7 @@ onMounted(() => {
     line-height: 1;
 
     background: transparent;
-    color: #d4ffd4;
+    color: v-bind(FG);
     border: none;
     outline: none;
     cursor: pointer;
@@ -321,7 +322,7 @@ onMounted(() => {
   }
 
   &:hover {
-    border-color: #d4ffd4;
+    border-color: v-bind(FG);
     box-shadow: 0 0 1.2rem rgba(212, 255, 212, 0.35);
   }
 
@@ -333,7 +334,7 @@ onMounted(() => {
     font-family: PublicPixel, monospace;
     font-size: 1.4rem;
     text-align: center;
-    color: #d4ffd4;
+    color: v-bind(FG);
     text-shadow:
       0 0 0.3rem rgba(0, 0, 0, 0.9),
       0 0 0.6rem rgba(0, 0, 0, 0.7);

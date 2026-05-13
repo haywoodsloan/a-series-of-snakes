@@ -16,6 +16,19 @@
       </div>
       <NuxtPage />
     </div>
+    <!-- Settings only shows on the home page. Positioned fixed in the
+         bottom-left corner of the viewport so it lives outside the normal
+         document flow and never disturbs the page layout. -->
+    <button
+      v-if="!showBack"
+      class="settings"
+      type="button"
+      aria-label="Settings"
+      @click="onSettings"
+    >
+      <span class="asterisk" aria-hidden="true">*</span> SETTINGS
+    </button>
+    <SettingsDialog :open="showSettings" @close="showSettings = false" />
   </div>
 </template>
 
@@ -24,6 +37,13 @@ import { FG, FOOD, SNAKE_ALT, WALL } from '~/utils/colors.js';
 
 const route = useRoute();
 const showBack = computed(() => route.path !== '/');
+
+// Toggles the SettingsDialog overlay. Lives at the app level so the dialog
+// can float above any page without each page having to wire it in.
+const showSettings = ref(false);
+function onSettings() {
+  showSettings.value = true;
+}
 </script>
 
 <style lang="scss">
@@ -133,6 +153,55 @@ svg {
     justify-content: space-between;
     padding-right: 2rem;
     margin-bottom: 1.5rem;
+  }
+}
+
+.settings {
+  // Fixed in the bottom-left corner of the viewport so the button lives
+  // outside the normal document flow and never disturbs the page layout.
+  // Sits above the CRT background; bump z-index when a settings panel is
+  // introduced that needs to overlay it.
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+
+  // Mirrors the `.back` link's pixel-font treatment so the two navigation
+  // controls read as a matched pair.
+  font-family: PublicPixel, monospace;
+  font-size: 1.75rem;
+  line-height: 1;
+
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: v-bind(FG);
+  text-shadow: 0 0 0.3rem currentColor;
+
+  transform: scaleY(1.4);
+  transform-origin: center left;
+  transition:
+    transform 0.15s ease-out,
+    text-shadow 0.15s ease-out;
+
+  .asterisk {
+    // PublicPixel renders `*` high in the cell; nudge it down to vertically
+    // center with the caps height of "SETTINGS", and pull the text in with
+    // a negative right margin so the two don't read as separate tokens.
+    display: inline-block;
+    vertical-align: top;
+    transform: translateY(0.28em);
+    margin-right: -0.55em;
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &:hover,
+  &:focus-visible {
+    transform: scaleY(1.4) scale(1.15);
+    text-shadow: 0 0 0.5rem currentColor;
   }
 }
 

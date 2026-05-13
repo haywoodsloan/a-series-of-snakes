@@ -1,10 +1,5 @@
 import Engine from './engine.js';
 
-// Speed ramp tuning, mirrored from classic.js.
-const BASE_TICK_RATE = 8;
-const SPEED_STEP = 0.4;
-const MAX_TICK_RATE = 20;
-
 // Food moves at this fraction of the snake's tick rate, on its own timer
 // so its cadence is independent of the simulation tick. Decoupling avoids
 // the stutter that comes from quantizing food motion to snake ticks.
@@ -12,7 +7,7 @@ const FOOD_SPEED = 0.35;
 
 export default class Chase extends Engine {
   constructor(canvas) {
-    super(canvas, { tickRate: BASE_TICK_RATE });
+    super(canvas);
 
     const head = {
       x: Math.floor(Math.random() * this.cols),
@@ -36,14 +31,6 @@ export default class Chase extends Engine {
   update() {
     if (!this._started || this.gameOver) return;
     this.stepAll();
-  }
-
-  onEat(snake, food) {
-    super.onEat(snake, food);
-    this.addRandomFood();
-    this.setTickRate(
-      Math.min(MAX_TICK_RATE, BASE_TICK_RATE + this.score * SPEED_STEP)
-    );
   }
 
   // Override so the food timer tracks the new snake speed.

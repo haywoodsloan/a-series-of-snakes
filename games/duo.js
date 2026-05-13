@@ -1,17 +1,12 @@
 import { SNAKE_ALT } from '../utils/colors.js';
 import Engine from './engine.js';
 
-// Speed ramp tuning, mirrored from classic.js.
-const BASE_TICK_RATE = 8;
-const SPEED_STEP = 0.4;
-const MAX_TICK_RATE = 20;
-
 const DIRECTIONS = ['up', 'down', 'left', 'right'];
 const randDir = () => DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
 
 export default class Duo extends Engine {
   constructor(canvas) {
-    super(canvas, { tickRate: BASE_TICK_RATE });
+    super(canvas);
 
     // Place each snake at a random empty cell. The second call sees the
     // first snake's segment as occupied, so the two starting positions
@@ -88,15 +83,12 @@ export default class Duo extends Engine {
   }
 
   // Either snake eating grows BOTH snakes (mirror-style shared growth),
-  // but the pickup only counts once toward the score.
+  // but the pickup only counts once toward the score. `super.onEat`
+  // handles the eater's growth, score bump, food respawn, and speed ramp.
   onEat(snake, food) {
     super.onEat(snake, food);
     const other =
       snake === this._snakeWasd ? this._snakeArrows : this._snakeWasd;
     other.length += 1;
-    this.addRandomFood();
-    this.setTickRate(
-      Math.min(MAX_TICK_RATE, BASE_TICK_RATE + this.score * SPEED_STEP)
-    );
   }
 }

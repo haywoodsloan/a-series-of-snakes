@@ -1,10 +1,5 @@
 import Engine from './engine.js';
 
-// Speed ramp tuning, mirrored from classic.js.
-const BASE_TICK_RATE = 8;
-const SPEED_STEP = 0.4;
-const MAX_TICK_RATE = 20;
-
 // Flip table: up<->down, left<->right. Applied at the input source so the
 // engine's U-turn guard never sees the pre-flip direction.
 const FLIP = {
@@ -16,7 +11,7 @@ const FLIP = {
 
 export default class Inverted extends Engine {
   constructor(canvas) {
-    super(canvas, { tickRate: BASE_TICK_RATE });
+    super(canvas);
 
     const head = {
       x: Math.floor(Math.random() * this.cols),
@@ -36,13 +31,5 @@ export default class Inverted extends Engine {
   update() {
     if (!this._started || this.gameOver) return;
     this.stepAll();
-  }
-
-  onEat(snake, food) {
-    super.onEat(snake, food);
-    this.addRandomFood();
-    this.setTickRate(
-      Math.min(MAX_TICK_RATE, BASE_TICK_RATE + this.score * SPEED_STEP)
-    );
   }
 }

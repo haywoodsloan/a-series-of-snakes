@@ -1,11 +1,6 @@
 import { SNAKE_ALT } from '../utils/colors.js';
 import Engine from './engine.js';
 
-// Speed ramp tuning, mirrored from classic.js.
-const BASE_TICK_RATE = 8;
-const SPEED_STEP = 0.4;
-const MAX_TICK_RATE = 20;
-
 // Horizontal mirror for direction inputs. Vertical motion is unchanged so
 // both snakes always occupy the same row; horizontal motion is flipped so
 // they always sit at mirrored columns across the vertical center line.
@@ -22,7 +17,7 @@ export default class Mirror extends Engine {
     // cell across the vertical center line -- with the engine's default 25
     // columns the center column would map to itself and break the "snakes
     // never share a cell" invariant.
-    super(canvas, { cols: 24, tickRate: BASE_TICK_RATE });
+    super(canvas, { cols: 24 });
 
     // Place the primary snake on the left half so its mirror lands on the
     // right half without overlap. The mirror is offset by exactly half the
@@ -65,15 +60,11 @@ export default class Mirror extends Engine {
   }
 
   // Either snake eating grows BOTH snakes, but only counts once toward the
-  // score. The default `onEat` handles `snake.length++` and `score++`; we
-  // mirror the growth onto the other snake here.
+  // score. `super.onEat` handles the eating snake's growth, score bump,
+  // food respawn, and speed ramp; we mirror the growth onto the partner.
   onEat(snake, food) {
     super.onEat(snake, food);
     const other = snake === this._snakeA ? this._snakeB : this._snakeA;
     other.length += 1;
-    this.addRandomFood();
-    this.setTickRate(
-      Math.min(MAX_TICK_RATE, BASE_TICK_RATE + this.score * SPEED_STEP)
-    );
   }
 }

@@ -1,11 +1,7 @@
 import Engine from './engine.js';
 
 // Spikes plays exactly like classic, but the playfield is seeded with
-// random spike walls that kill the snake on contact. Speed ramp matches
-// classic so the only added challenge is the geometry of the walls.
-const BASE_TICK_RATE = 8;
-const SPEED_STEP = 0.4;
-const MAX_TICK_RATE = 20;
+// random spike walls that kill the snake on contact.
 
 // Fraction of the grid filled with spike walls at game start.
 const WALL_RATIO = 0.1;
@@ -17,7 +13,7 @@ const SPAWN_CLEARANCE = 2;
 
 export default class Spikes extends Engine {
   constructor(canvas) {
-    super(canvas, { tickRate: BASE_TICK_RATE });
+    super(canvas);
 
     const head = {
       x: Math.floor(Math.random() * this.cols),
@@ -41,14 +37,6 @@ export default class Spikes extends Engine {
   update() {
     if (!this._started || this.gameOver) return;
     this.stepAll();
-  }
-
-  onEat(snake, food) {
-    super.onEat(snake, food);
-    this.addRandomFood();
-    this.setTickRate(
-      Math.min(MAX_TICK_RATE, BASE_TICK_RATE + this.score * SPEED_STEP)
-    );
   }
 
   onCollision(collision) {

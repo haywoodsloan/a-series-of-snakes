@@ -1,12 +1,10 @@
 /**
- * Shared color palette for the game canvas. Keep all in-game colors here so
- * the look stays consistent across games and tweaks happen in one place.
- *
- * NOTE: The Vue/SCSS styles in `app.vue` and `pages/*.vue` duplicate a few
- * of these values (notably `FG`, `SCORE`, and `HIGH`) for chrome that lives
- * outside the canvas. SCSS can't import from JS, so those literals are kept
- * in sync by hand -- if you change a value here, grep the .vue/.scss files
- * for the old hex and update them too.
+ * Shared color palette for the game canvas and the surrounding chrome.
+ * Keep all theme colors here so the look stays consistent across games
+ * and tweaks happen in one place. Vue/SCSS files pull these into styles
+ * via `v-bind(NAME)`; only static assets (e.g. shadow rgba accents in
+ * `assets/css/crt.scss`) still hardcode hex values, and those don't need
+ * to follow palette changes.
  */
 
 // Primary foreground: snake bodies, border, score chrome text.

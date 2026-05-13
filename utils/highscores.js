@@ -73,11 +73,19 @@ export function topScore(gameKey) {
   return list.length ? list[0].score : 0;
 }
 
-/** Force a name to NAME_LEN uppercase A-Z, padded with '_' if too short. */
-export function sanitizeName(name) {
-  const cleaned = String(name ?? '')
+/**
+ * Strip a free-form string to uppercase A-Z, capped at NAME_LEN. No
+ * padding -- callers that need a fixed-width name use `sanitizeName`.
+ * @param {unknown} name
+ */
+export function sanitizeInitials(name) {
+  return String(name ?? '')
     .toUpperCase()
     .replace(/[^A-Z]/g, '')
     .slice(0, NAME_LEN);
-  return cleaned.padEnd(NAME_LEN, '_');
+}
+
+/** Force a name to NAME_LEN uppercase A-Z, padded with '_' if too short. */
+export function sanitizeName(name) {
+  return sanitizeInitials(name).padEnd(NAME_LEN, '_');
 }
