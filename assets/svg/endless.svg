@@ -1,0 +1,25 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  preserveAspectRatio="xMidYMid meet"
+  width="100%"
+  height="100%"
+>
+  <!-- A single snake winding across the board with no food in sight --
+       the trail keeps growing forever. 10x10 grid, cells 9.6x9.6 with a
+       2.4 offset to match the other previews. -->
+  <g class="fg">
+    <rect x="12.0" y="21.6" width="9.6" height="9.6" />
+    <rect x="21.6" y="21.6" width="9.6" height="9.6" />
+    <rect x="31.2" y="21.6" width="9.6" height="9.6" />
+    <rect x="31.2" y="31.2" width="9.6" height="9.6" />
+    <rect x="31.2" y="40.8" width="9.6" height="9.6" />
+    <rect x="40.8" y="40.8" width="9.6" height="9.6" />
+    <rect x="50.4" y="40.8" width="9.6" height="9.6" />
+    <rect x="60.0" y="40.8" width="9.6" height="9.6" />
+    <rect x="60.0" y="50.4" width="9.6" height="9.6" />
+    <rect x="60.0" y="60.0" width="9.6" height="9.6" />
+    <rect x="69.6" y="60.0" width="9.6" height="9.6" />
+    <rect x="79.2" y="60.0" width="9.6" height="9.6" />
+  </g>
+</svg>
