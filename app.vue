@@ -70,9 +70,22 @@ body {
   min-height: 100vh;
   min-width: 100vw;
 
+  // PublicPixel is the app-wide default; individual elements only need to
+  // declare `font-family` when they want something else (no rules in this
+  // codebase currently do). `inherit` propagates this through to <button>
+  // and <input>, which otherwise reset to the UA default.
+  font-family: PublicPixel, monospace;
+
   // SHOUTING MODE: every glyph in the app rendered in PublicPixel reads
   // better in caps, so just uppercase everything globally.
   text-transform: uppercase;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
 @font-face {
@@ -167,7 +180,6 @@ svg {
 
   // Mirrors the `.back` link's pixel-font treatment so the two navigation
   // controls read as a matched pair.
-  font-family: PublicPixel, monospace;
   font-size: 1.75rem;
   line-height: 1;
 
@@ -206,7 +218,6 @@ svg {
 }
 
 .title {
-  font-family: PublicPixel;
   font-size: 3.5rem;
 
   color: v-bind(FG);
@@ -217,7 +228,6 @@ svg {
 }
 
 .back {
-  font-family: PublicPixel, monospace;
   font-size: 1.75rem;
   line-height: 1;
 

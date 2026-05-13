@@ -238,7 +238,6 @@ onBeforeUnmount(destroyGame);
 }
 
 .game-over {
-  font-family: PublicPixel, monospace;
   font-size: 3rem;
   line-height: 1;
   color: v-bind(FG);
@@ -264,7 +263,6 @@ onBeforeUnmount(destroyGame);
   min-width: 32rem;
 
   color: v-bind(FG);
-  font-family: PublicPixel, monospace;
   font-size: 1.5rem;
   line-height: 1.2;
   text-shadow: 0 0 0.3rem currentColor;
@@ -294,7 +292,6 @@ onBeforeUnmount(destroyGame);
       bottom: 0;
       overflow: hidden;
       white-space: nowrap;
-      font-family: PublicPixel, monospace;
       font-size: 1.75rem;
       line-height: 1;
       letter-spacing: 0.1rem;
@@ -359,7 +356,6 @@ onBeforeUnmount(destroyGame);
   gap: 2.25rem;
 
   .prompt {
-    font-family: PublicPixel, monospace;
     font-size: 1.35rem;
     color: v-bind(FG);
     text-shadow: 0 0 0.3rem currentColor;
@@ -390,7 +386,6 @@ onBeforeUnmount(destroyGame);
     background: transparent;
     color: transparent;
     caret-color: transparent;
-    font-family: PublicPixel, monospace;
     font-size: 2.25rem;
     letter-spacing: 1.4rem;
     text-align: center;
@@ -410,7 +405,6 @@ onBeforeUnmount(destroyGame);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: PublicPixel, monospace;
       font-size: 2.25rem;
       line-height: 1;
 
@@ -449,7 +443,6 @@ onBeforeUnmount(destroyGame);
 
 .overlay-btn {
   padding: 0.75rem 1.5rem;
-  font-family: PublicPixel, monospace;
   font-size: 1.5rem;
   line-height: 1;
 

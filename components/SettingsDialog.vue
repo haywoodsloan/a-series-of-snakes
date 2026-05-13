@@ -56,7 +56,7 @@
         </div>
 
         <button type="button" class="settings-close" @click="close">
-          Close &gt;
+          <span class="chevron" aria-hidden="true">&lt;</span> BACK
         </button>
       </div>
     </div>
@@ -138,7 +138,6 @@ watch(
     inset 0 0 0.5rem rgba(212, 255, 212, 0.15);
 
   color: v-bind(FG);
-  font-family: PublicPixel, monospace;
   text-shadow: 0 0 0.3rem currentColor;
 
   outline: none;
@@ -199,7 +198,6 @@ watch(
 // Shared button look: transparent, FG text, hover glow. Used for the
 // stepper arrows, the toggle, and the close button.
 %pixel-button {
-  font-family: PublicPixel, monospace;
   font-size: 1.25rem;
   line-height: 1;
   color: v-bind(FG);
@@ -224,7 +222,9 @@ watch(
 
 .step {
   @extend %pixel-button;
-  transform: scaleY(1.4);
+  // PublicPixel's `<` and `>` glyphs sit a touch low relative to the
+  // value text; nudge them up so they line up optically with the digits.
+  transform: translateY(-0.08em) scaleY(1.4);
 }
 
 .toggle {
@@ -235,14 +235,40 @@ watch(
 }
 
 .settings-close {
-  @extend %pixel-button;
+  // Visually identical to the header `.back` link so the dialog's exit
+  // reads as the same navigation gesture: same chevron nudge, same
+  // hover-scale glow. Sized a touch smaller than the header link so it
+  // reads as a secondary action inside the panel.
+  font-size: 1.5rem;
+  line-height: 1;
+  color: v-bind(FG);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-shadow: 0 0 0.3rem currentColor;
+
   align-self: center;
   margin-top: 0.5rem;
   transform: scaleY(1.4);
+  transform-origin: center;
+  transition:
+    transform 0.15s ease-out,
+    text-shadow 0.15s ease-out;
+
+  .chevron {
+    // PublicPixel renders `<` low relative to caps; nudge it up so it
+    // lines up with the "BACK" text (same trick as the header link).
+    display: inline-block;
+    vertical-align: top;
+    transform: translateY(-0.12em);
+  }
 
   &:hover,
   &:focus-visible {
-    transform: scaleY(1.4) scale(1.1);
+    outline: none;
+    transform: scaleY(1.4) scale(1.15);
+    text-shadow: 0 0 0.5rem currentColor;
   }
 }
 

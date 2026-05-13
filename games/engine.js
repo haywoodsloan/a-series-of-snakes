@@ -141,6 +141,20 @@ export default class Engine {
     // Cached grid layout, invalidated on canvas resize.
     this._layout = null;
 
+    // Render/collision caches for static wall geometry. Walls never change
+    // after a game starts (only seeded in subclass constructors), so the
+    // O(1) cell-keyed map and the per-color Path2D buckets can be built
+    // once and reused across every render and collision check. Both are
+    // invalidated whenever walls mutate (`addWall`/rollback) and whenever
+    // the canvas resizes (paths depend on the cached layout). The grid
+    // overlay shares the same lifetime as the wall paths.
+    /** @type {Map<number, Wall> | null} */
+    this._wallByKey = null;
+    /** @type {Map<string, Path2D> | null} */
+    this._wallPaths = null;
+    /** @type {Path2D | null} */
+    this._gridPath = null;
+
     // Input handling. Subclasses register callbacks via `onInput`.
     /** @type {Set<(info: { kind: InputKind, dir: Direction, event: KeyboardEvent }) => void>} */
     this._inputHandlers = new Set();
@@ -183,6 +197,10 @@ export default class Engine {
     this.canvas.width = w;
     this.canvas.height = h;
     this._layout = null;
+    // Layout-dependent geometry caches must follow `_layout` so the next
+    // render rebuilds them against the new cell size.
+    this._wallPaths = null;
+    this._gridPath = null;
     return true;
   }
 
@@ -362,10 +380,10 @@ export default class Engine {
     // Walls: head shares a cell with any static obstacle. Checked first
     // so wall hits take priority over self/other collisions on the same
     // tick (a head moving into a wall should always read as a wall death).
-    for (const wall of this.walls) {
-      if (wall.x * this.rows + wall.y === headKey) {
-        return { snake, type: 'wall', wall, at };
-      }
+    // Lookup is O(1) via the cached cell-keyed wall map.
+    if (this.walls.length) {
+      const wall = this._wallMap().get(headKey);
+      if (wall) return { snake, type: 'wall', wall, at };
     }
 
     // Self: head shares a cell with any other segment of the same snake.
@@ -443,7 +461,30 @@ export default class Engine {
   addWall(at, color) {
     const wall = { x: at.x, y: at.y, color };
     this.walls.push(wall);
+    this._invalidateWallCaches();
     return wall;
+  }
+
+  /**
+   * Drop the cell-keyed wall map and the cached draw paths so the next
+   * render/collision check rebuilds them against the current wall list.
+   */
+  _invalidateWallCaches() {
+    this._wallByKey = null;
+    this._wallPaths = null;
+  }
+
+  /**
+   * Lazily-built `cellKey -> Wall` lookup. Cell key is `x * rows + y` so
+   * it matches the encoding used throughout the engine.
+   * @returns {Map<number, Wall>}
+   */
+  _wallMap() {
+    if (this._wallByKey) return this._wallByKey;
+    const m = new Map();
+    for (const w of this.walls) m.set(w.x * this.rows + w.y, w);
+    this._wallByKey = m;
+    return m;
   }
 
   /**
@@ -664,6 +705,9 @@ export default class Engine {
         placed.delete(seed);
         parent.delete(seed);
         remaining++;
+        // `addWall` invalidated the caches when it pushed; the matching
+        // pop has to do the same so the next consumer rebuilds.
+        this._invalidateWallCaches();
       }
     }
 
@@ -878,25 +922,30 @@ export default class Engine {
   }
 
   // Faint cell-boundary lines. Half-pixel offsets keep the 1px strokes
-  // crisp on integer-aligned grids.
+  // crisp on integer-aligned grids. The path is built once per layout and
+  // re-stroked on subsequent renders; resize invalidates it via
+  // `_syncCanvasSize`.
   _drawGrid({ cell, ox, oy }, w, h) {
     const { ctx } = this;
+    if (!this._gridPath) {
+      const path = new Path2D();
+      for (let i = 1; i < this.cols; i++) {
+        const x = Math.round(ox + i * cell) + 0.5;
+        path.moveTo(x, oy);
+        path.lineTo(x, oy + h);
+      }
+      for (let j = 1; j < this.rows; j++) {
+        const y = Math.round(oy + j * cell) + 0.5;
+        path.moveTo(ox, y);
+        path.lineTo(ox + w, y);
+      }
+      this._gridPath = path;
+    }
     ctx.save();
     ctx.strokeStyle = FG;
     ctx.globalAlpha = 0.12;
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 1; i < this.cols; i++) {
-      const x = Math.round(ox + i * cell) + 0.5;
-      ctx.moveTo(x, oy);
-      ctx.lineTo(x, oy + h);
-    }
-    for (let j = 1; j < this.rows; j++) {
-      const y = Math.round(oy + j * cell) + 0.5;
-      ctx.moveTo(ox, y);
-      ctx.lineTo(ox + w, y);
-    }
-    ctx.stroke();
+    ctx.stroke(this._gridPath);
     ctx.restore();
   }
 
@@ -904,6 +953,21 @@ export default class Engine {
     if (!this.walls.length) return;
     const { ctx } = this;
 
+    // Wall geometry is expensive to build (chamfered cores + per-edge
+    // spikes per cell) and never changes during a game, so cache the
+    // per-color Path2D buckets and stroke them directly on subsequent
+    // renders. Caches are invalidated when walls mutate or the canvas
+    // resizes (both clear `this._wallPaths`).
+    if (!this._wallPaths) {
+      this._wallPaths = this._buildWallPaths(cell, ox, oy);
+    }
+    for (const [color, path] of this._wallPaths) {
+      ctx.fillStyle = color;
+      ctx.fill(path);
+    }
+  }
+
+  _buildWallPaths(cell, ox, oy) {
     // Each wall is a square "core" ringed by a row of small triangular
     // spikes on every side, so it reads as a hazard from any approach
     // direction. Adjacent walls visually merge: the core extends to fill
@@ -915,16 +979,14 @@ export default class Engine {
     const tip = cell * 0.16; // how far spikes reach outside the core
     const spikesPerSide = 4; // count of small triangles along each edge
 
-    // Lookup of occupied wall cells by `x * rows + y` so neighbor checks
-    // are O(1) instead of O(walls) per side.
-    const wallSet = new Set();
-    for (const w of this.walls) wallSet.add(w.x * this.rows + w.y);
+    // O(1) neighbor check via the cached cell-keyed wall map.
+    const wallMap = this._wallMap();
     const hasWall = (x, y) =>
       x >= 0 &&
       y >= 0 &&
       x < this.cols &&
       y < this.rows &&
-      wallSet.has(x * this.rows + y);
+      wallMap.has(x * this.rows + y);
 
     /** @type {Map<string, Path2D>} */
     const buckets = new Map();
@@ -1054,10 +1116,7 @@ export default class Engine {
       }
     }
 
-    for (const [color, path] of buckets) {
-      ctx.fillStyle = color;
-      ctx.fill(path);
-    }
+    return buckets;
   }
 
   _drawFood({ cell, ox, oy }) {

@@ -148,7 +148,6 @@ onMounted(() => {
     justify-content: center;
 
     padding: 0.75rem 1.25rem;
-    font-family: PublicPixel, monospace;
     font-size: 3.25rem;
     line-height: 1;
 
@@ -331,7 +330,6 @@ onMounted(() => {
     inset: auto 0 8%;
     z-index: 1;
 
-    font-family: PublicPixel, monospace;
     font-size: 1.4rem;
     text-align: center;
     color: v-bind(FG);
