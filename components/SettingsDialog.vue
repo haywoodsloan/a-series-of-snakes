@@ -34,7 +34,7 @@
               >
                 &lt;
               </button>
-              <span class="value">{{ formatSpeed(settings.baseSpeed) }}</span>
+              <span class="value">{{ settings.baseSpeed }}<span class="unit-suffix">X</span></span>
               <button
                 type="button"
                 class="step"
@@ -59,9 +59,7 @@
               >
                 &lt;
               </button>
-              <span class="value">
-                {{ settings.gridSize }}<span class="grid-size-x">X</span>{{ settings.gridSize }}
-              </span>
+              <span class="value">{{ settings.gridSize }}<span class="unit-x">X</span>{{ settings.gridSize }}</span>
               <button
                 type="button"
                 class="step"
@@ -164,12 +162,6 @@ function stepSpeed(delta) {
   settings.baseSpeed = SPEED_OPTIONS[next];
 }
 
-function formatSpeed(v) {
-  // "1X", "0.25X" etc -- drop trailing zeros from non-integers but keep
-  // fractional digits where they exist.
-  return `${v}X`;
-}
-
 // Grid size uses the same stepper pattern as speed; index into
 // GRID_SIZE_OPTIONS is the source of truth. Changes take effect when
 // the next game is constructed (the engine reads `settings.gridSize`
@@ -224,15 +216,16 @@ watch(
 }
 
 .settings-panel {
-  // Layout magic numbers extracted as variables so future tweaks are
-  // one-place edits. Referenced by `.settings-label` and `.value`.
-  --settings-label-width: 12ch;
-  --settings-value-width: 7ch;
+  // Layout magic number extracted as a variable so future tweaks are
+  // a one-place edit. Sized to fit the widest value (`100X100` = 7ch),
+  // with a touch of slack so the value never feels cramped against the
+  // stepper arrows.
+  --settings-value-width: 8ch;
 
-  // Sized to comfortably fit every row + the title + the close button
-  // with breathing room. Horizontal padding gives equal empty space on
-  // either side of the content.
-  min-width: 32rem;
+  // Size to content so the right edge sits flush against the widest
+  // row's `>` stepper; the symmetric horizontal padding then gives
+  // equal empty space on either side of the content.
+  width: max-content;
   padding: 2rem 3.5rem;
 
   background: rgba(4, 18, 10, 0.92);
@@ -272,45 +265,40 @@ watch(
 }
 
 .settings-rows {
-  // Rows-group fills the panel's content area so each row's label and
-  // control sit flush against the panel's left/right padding edges --
-  // the panel's symmetric horizontal padding then gives equal empty
-  // space on either side of the content.
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  // Two-column grid so every row's label column and control column line
+  // up with each other, regardless of intrinsic content widths. Rows
+  // use `display: contents` so their label/control children participate
+  // directly in this grid.
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 4rem;
+  row-gap: 1.5rem;
 }
 
 .settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
+  display: contents;
 }
 
 .settings-label {
-  // Fixed width so every row's control column starts at the same x; using
-  // `space-between` made the label-to-control gap shift with each
-  // control's intrinsic width.
-  flex: 0 0 var(--settings-label-width);
   font-size: 1.25rem;
   line-height: 1;
+  align-self: center;
   transform: scaleY(1.4);
   transform-origin: center left;
 }
 
 .settings-control {
-  display: flex;
+  // Three-column grid so the `<` arrow, value, and `>` arrow line up
+  // across every row -- including the toggle row, which uses invisible
+  // `.step-placeholder` spans in the arrow slots.
+  display: grid;
+  grid-template-columns: auto var(--settings-value-width) auto;
   align-items: center;
-  gap: 1rem;
+  column-gap: 0.5rem;
   font-size: 1.25rem;
   line-height: 1;
 
   .value {
-    // Uniform width so the `<` / `>` stepper arrows line up across rows
-    // -- the grid-size value is the widest, so size every value slot to
-    // match it.
-    min-width: var(--settings-value-width);
     text-align: center;
     transform: scaleY(1.4);
     // The value is non-interactive read-only text between two buttons;
@@ -320,12 +308,18 @@ watch(
     -webkit-user-select: none;
   }
 
-  .grid-size-x {
+  .unit-x {
     // PublicPixel's `x` glyph is as tall as the digits; shrink it so the
     // separator reads as a divider instead of competing with the numbers.
     font-size: 0.65em;
     margin: 0 0.5em;
     vertical-align: 0.15em;
+  }
+
+  .unit-suffix {
+    // Tighter-than-a-space gap between the number and its unit `X`,
+    // while keeping the `X` at full size.
+    margin-left: 0.25em;
   }
 }
 
@@ -366,6 +360,29 @@ watch(
   // PublicPixel's `<` and `>` glyphs sit a touch low relative to the
   // value text; nudge them up so they line up optically with the digits.
   transform: translateY(-0.08em) scaleY(1.4);
+  transform-origin: center center;
+  // Animate the scale-up on hover/focus so the chevrons grow the same
+  // way the dialog's BACK button does.
+  transition:
+    transform 0.15s ease-out,
+    text-shadow 0.15s ease-out;
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    transform: translateY(-0.08em) scaleY(1.4) scale(1.25);
+  }
+
+  // The leading `<` button is the first item in each control row and
+  // the trailing `>` is the last; dropping their outer padding lets the
+  // panel's own padding be the only gap between them and the panel's
+  // edges.
+  &:first-child {
+    padding-left: 0;
+  }
+
+  &:last-child {
+    padding-right: 0;
+  }
 }
 
 .toggle {
@@ -377,7 +394,7 @@ watch(
 
 // Invisible same-width-as-`.step` slots that flank the toggle button so
 // it occupies the same horizontal position as the value text in the
-// stepper rows -- aligning "Hidden" / "Shown" with "1X" / "50x50".
+// stepper rows -- aligning "HIDDEN" / "SHOWN" with "1 X" / "30X30".
 .step-placeholder {
   visibility: hidden;
   pointer-events: none;

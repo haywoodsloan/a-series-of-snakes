@@ -6,14 +6,14 @@ import { reactive, watch } from 'vue';
 
 const STORAGE_KEY = 'a-series-of-snakes:settings';
 
-// Allowed values for the base-speed multiplier. The dropdown in the
+// Allowed values for the base-speed multiplier. The stepper in the
 // settings dialog uses these directly; the engine multiplies its requested
 // tick rate by the selected value.
 export const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 2];
 
 // Allowed values for the playfield grid size. The engine reads this at
 // construction time, so changes take effect on the next game start.
-export const GRID_SIZE_OPTIONS = [20, 25, 30, 40, 50];
+export const GRID_SIZE_OPTIONS = [20, 30, 50, 75, 100];
 
 /** @typedef {{ baseSpeed: number, gridLines: boolean, gridSize: number }} Settings */
 
@@ -21,7 +21,7 @@ export const GRID_SIZE_OPTIONS = [20, 25, 30, 40, 50];
 const DEFAULTS = Object.freeze({
   baseSpeed: 1,
   gridLines: false,
-  gridSize: 25,
+  gridSize: 30,
 });
 
 function safeStorage() {
