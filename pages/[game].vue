@@ -1,14 +1,23 @@
 <template>
   <div class="game-host">
     <canvas ref="canvasRef" class="game-canvas" />
-    <div v-if="showOverlay" class="overlay">
-      <div class="game-over" aria-label="Game over">GAME OVER</div>
+    <div
+      v-if="showOverlay"
+      class="overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="game-over-label"
+      aria-live="polite"
+    >
+      <div id="game-over-label" class="game-over">GAME OVER</div>
       <form v-if="needsName" class="name-entry" @submit.prevent="submitName">
-        <label class="prompt">{{
+        <label for="initials-input" class="visually-hidden">Initials</label>
+        <label class="prompt" aria-hidden="true">{{
           isTopScore ? 'New high score! Enter initials' : 'Enter initials'
         }}</label>
         <div class="initials-wrap">
           <input
+            id="initials-input"
             ref="nameInput"
             v-model="initials"
             class="initials"
@@ -17,7 +26,6 @@
             autocapitalize="characters"
             spellcheck="false"
             inputmode="text"
-            aria-label="Initials"
             @input="onInitialsInput"
           />
           <div class="initials-ghost" aria-hidden="true">
@@ -70,14 +78,18 @@
   </div>
 </template>
 
-<script setup>
+<script>
 import games from '~/games/index.js';
-import { FG, HIGH, SCORE } from '~/utils/colors.js';
-import { loadScores, sanitizeInitials } from '~/utils/highscores.js';
 
 // Build the lookup once at module init -- avoids an O(n) scan per route
-// change. `games` is a static module-level array, so the map is stable.
+// change and prevents rebuilding on every component mount. `games` is a
+// static module-level array, so the map is stable.
 const gamesByName = new Map(games.map((g) => [g.name, g]));
+</script>
+
+<script setup>
+import { FG, HIGH, SCORE } from '~/utils/colors.js';
+import { loadScores, sanitizeInitials } from '~/utils/highscores.js';
 
 const route = useRoute();
 const canvasRef = ref(null);
@@ -141,6 +153,9 @@ function onGameOver(event) {
     // No entry needed; just show the existing table.
     highScores.value = loadScores(event.detail?.gameKey ?? currentName);
     currentIndex.value = -1;
+    // Move focus to the primary action so keyboard users can restart
+    // immediately without locating the button manually.
+    nextTick(() => restartBtn.value?.focus());
   }
 }
 
@@ -203,6 +218,21 @@ onBeforeUnmount(destroyGame);
 </script>
 
 <style lang="scss" scoped>
+// Standard screen-reader-only clipping pattern: visually hidden but still
+// announced by assistive tech and associable via `for`/`id`.
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .game-host {
   flex-grow: 1;
   position: relative;

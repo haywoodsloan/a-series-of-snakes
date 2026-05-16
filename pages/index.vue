@@ -59,6 +59,15 @@ const ROWS = 3;
 const COLS = 4;
 const PAGE_SIZE = ROWS * COLS;
 
+// Snow animation timing per preview cell.
+const SNOW_MAX_DELAY = 5; // seconds; randomized negative offset upper bound
+const SNOW_DURATION_MIN = 1.4; // seconds; floor of the per-cell duration
+const SNOW_DURATION_RANGE = 0.6; // seconds; random range added to the floor
+// Trace (scanline sweep) animation timing per preview cell.
+const TRACE_MAX_DELAY = 8; // seconds; randomized negative offset upper bound
+const TRACE_DURATION_MIN = 4; // seconds; floor of the per-cell duration
+const TRACE_DURATION_RANGE = 3; // seconds; random range added to the floor
+
 // Pre-compute display data once: games is a static module-level array, so
 // this never needs to be recomputed -- it lives in module scope and the
 // component just references it.
@@ -92,8 +101,11 @@ onMounted(() => {
   const styles = new Array(PAGE_SIZE);
   const traces = new Array(PAGE_SIZE);
   for (let i = 0; i < PAGE_SIZE; i++) {
-    const delay = -(Math.random() * 5).toFixed(2);
-    const duration = (1.4 + Math.random() * 0.6).toFixed(2);
+    const delay = -(Math.random() * SNOW_MAX_DELAY).toFixed(2);
+    const duration = (
+      SNOW_DURATION_MIN +
+      Math.random() * SNOW_DURATION_RANGE
+    ).toFixed(2);
     const direction = Math.random() < 0.5 ? 'normal' : 'reverse';
     styles[i] = {
       animationDelay: `${delay}s`,
@@ -104,8 +116,11 @@ onMounted(() => {
     // don't sweep across every preview in lockstep, and a wide duration
     // window so they appear at visibly different cadences.
     traces[i] = {
-      animationDelay: `-${(Math.random() * 8).toFixed(2)}s`,
-      animationDuration: `${(4 + Math.random() * 3).toFixed(2)}s`,
+      animationDelay: `-${(Math.random() * TRACE_MAX_DELAY).toFixed(2)}s`,
+      animationDuration: `${(
+        TRACE_DURATION_MIN +
+        Math.random() * TRACE_DURATION_RANGE
+      ).toFixed(2)}s`,
     };
   }
   snowStyles.value = styles;

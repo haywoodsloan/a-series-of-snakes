@@ -1,19 +1,19 @@
-import Engine from './engine.js';
+import Engine, { STARTING_LENGTH } from './engine.js';
 
 // Food moves at this fraction of the snake's tick rate, on its own timer
 // so its cadence is independent of the simulation tick. Decoupling avoids
 // the stutter that comes from quantizing food motion to snake ticks.
 const FOOD_SPEED = 0.35;
 
+/**
+ * Chase: classic rules, but the pellet actively flees the snake's head,
+ * moving on its own timer toward the farthest legal neighbor each tick.
+ */
 export default class Chase extends Engine {
   constructor(canvas) {
     super(canvas);
 
-    const head = {
-      x: Math.floor(Math.random() * this.cols),
-      y: Math.floor(Math.random() * this.rows),
-    };
-    this._snake = this.addSnake({ head, length: 3 });
+    this._snake = this.addSnakeAtRandomCell({ length: STARTING_LENGTH });
     this._started = false;
     this._foodTimer = 0;
 
@@ -149,10 +149,7 @@ const NEIGHBOR_DY = [0, 0, 1, -1];
 // Index pairs that are 180-degree opposites: 0<->1 (x), 2<->3 (y).
 const NEIGHBOR_REVERSE = [1, 0, 3, 2];
 
-/**
- * Shortest signed delta from `b` to `a` on a wrapped axis of size `n`.
- * Result is in (-n/2, n/2].
- */
+/** Shortest signed delta from `b` to `a` on a wrapped axis of size `n`; result is in (-n/2, n/2]. */
 function wrappedDelta(a, b, n) {
   let d = a - b;
   if (d > n / 2) d -= n;

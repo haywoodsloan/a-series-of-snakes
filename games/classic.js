@@ -1,5 +1,10 @@
-import Engine from './engine.js';
+import Engine, { STARTING_LENGTH } from './engine.js';
 
+/**
+ * Classic snake: one snake on a wrapping grid, one pellet at a time,
+ * eat to grow and ramp speed. The baseline mode against which every
+ * other variant defines its twist.
+ */
 export default class Classic extends Engine {
   constructor(canvas) {
     super(canvas);
@@ -8,11 +13,7 @@ export default class Classic extends Engine {
     // snake is just a single visible cell; once the player picks a
     // direction it grows to its full length as it moves -- always rendering
     // as a straight line because every step extends in the same direction.
-    const head = {
-      x: Math.floor(Math.random() * this.cols),
-      y: Math.floor(Math.random() * this.rows),
-    };
-    this._snake = this.addSnake({ head, length: 3 });
+    this._snake = this.addSnakeAtRandomCell({ length: STARTING_LENGTH });
     this._started = false;
 
     // One pellet to start.

@@ -70,24 +70,64 @@ const KEY_MAP = {
 
 const SCORE_FONT = '28px PublicPixel, monospace';
 
-// Shared speed-ramp tuning used by the default `onEat` so every game with
-// the standard "eat a pellet -> grow + speed up" loop gets identical
-// pacing without each subclass redeclaring the constants.
+/**
+ * Shared speed-ramp tuning used by the default `onEat` so every game with
+ * the standard "eat a pellet -> grow + speed up" loop gets identical
+ * pacing without each subclass redeclaring the constants. `BASE_TICK_RATE`
+ * is the starting logic ticks-per-second, `SPEED_STEP` is the per-pellet
+ * increase, and `MAX_TICK_RATE` caps the ramp.
+ */
 export const BASE_TICK_RATE = 8;
 export const SPEED_STEP = 0.4;
 export const MAX_TICK_RATE = 20;
 
+/**
+ * Canonical starting length for a freshly-spawned snake. Single-snake
+ * games and per-snake multiplayer games all use this so the difficulty
+ * floor is identical across modes.
+ */
+export const STARTING_LENGTH = 3;
+
+// Rendering constants.
+const BORDER_RATIO = 0.1;            // Border thickness as fraction of cell size.
+const WALL_CORE_INSET = 0.22;        // Wall core padding from cell edges (fraction of cell).
+const WALL_SPIKE_TIP = 0.16;         // Spike protrusion outside the core (fraction of cell).
+const WALL_SPIKES_PER_SIDE = 4;      // Triangle count along each unmerged wall edge.
+const GRID_LINE_ALPHA = 0.12;        // Opacity of optional grid overlay.
+const GAMEOVER_OVERLAY_ALPHA = 0.6;  // Dim layer drawn over the playfield on game over.
+
+// randomEmptyCell tuning: cap retries so almost-full boards fall back to
+// a deterministic scan instead of spinning.
+const MIN_RANDOM_BUDGET = 16;
+const MAX_RANDOM_BUDGET = 256;
+const BUDGET_FILL_MULTIPLIER = 4;
+
+/**
+ * Fixed-step snake game engine.
+ *
+ * Owns the DPR-aware canvas, runs a fixed-timestep logic loop with
+ * dirty-flag rendering, and manages snakes, food pellets, and static
+ * wall obstacles. Provides a default renderer (playfield, border,
+ * walls, food, snakes, score, game-over overlay) that subclasses can
+ * extend or replace by overriding `update`, `onEat`, `onCollision`,
+ * and `render`.
+ */
 export default class Engine {
   /**
    * @param {HTMLCanvasElement} canvas
    * @param {Object} [options]
-   * @param {number} [options.cols=25]                  Grid width in cells.
-   * @param {number} [options.rows=25]                  Grid height in cells.
+   * @param {number} [options.cols]                    Grid width in cells. Defaults to `settings.gridSize`.
+   * @param {number} [options.rows]                    Grid height in cells. Defaults to `settings.gridSize`.
    * @param {number} [options.tickRate=BASE_TICK_RATE]  Logic ticks per second.
    */
   constructor(
     canvas,
-    { cols = 25, rows = 25, tickRate = BASE_TICK_RATE, gameKey } = {}
+    {
+      cols = settings.gridSize,
+      rows = settings.gridSize,
+      tickRate = BASE_TICK_RATE,
+      gameKey,
+    } = {}
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
@@ -303,6 +343,18 @@ export default class Engine {
     };
     this.snakes.push(snake);
     return snake;
+  }
+
+  /**
+   * Convenience helper: add a snake at a uniformly random empty cell.
+   * Returns null if the grid is full. Most single-snake games use this.
+   * @param {Object} [opts] Forwarded to `addSnake` (length, direction, color).
+   * @returns {Snake | null}
+   */
+  addSnakeAtRandomCell(opts = {}) {
+    const head = this.randomEmptyCell();
+    if (!head) return null;
+    return this.addSnake({ head, ...opts });
   }
 
   /**
@@ -755,7 +807,10 @@ export default class Engine {
     // After a budget of random tries (proportional to fill density), fall
     // back to a deterministic scan so an almost-full board can't spin.
     const free = total - exclude.size;
-    const budget = Math.max(16, Math.min(256, free * 4));
+    const budget = Math.max(
+      MIN_RANDOM_BUDGET,
+      Math.min(MAX_RANDOM_BUDGET, free * BUDGET_FILL_MULTIPLIER)
+    );
     for (let attempt = 0; attempt < budget; attempt++) {
       const i = Math.floor(Math.random() * total);
       if (!exclude.has(i)) {
@@ -894,7 +949,7 @@ export default class Engine {
 
     // Two-pass fit: estimate border from a rough cell size, then refit
     // cells so the constraining axis has exactly 2 * border of slack.
-    const borderFor = (cell) => Math.max(2, Math.round(cell * 0.1));
+    const borderFor = (cell) => Math.max(2, Math.round(cell * BORDER_RATIO));
     const fit = (reserved) =>
       Math.min(
         (this.canvas.width - reserved) / this.cols,
@@ -943,7 +998,7 @@ export default class Engine {
     }
     ctx.save();
     ctx.strokeStyle = FG;
-    ctx.globalAlpha = 0.12;
+    ctx.globalAlpha = GRID_LINE_ALPHA;
     ctx.lineWidth = 1;
     ctx.stroke(this._gridPath);
     ctx.restore();
@@ -975,9 +1030,9 @@ export default class Engine {
     // side are omitted so a run of walls reads as one connected obstacle.
     // Group walls by color into a single Path2D per color so each render
     // is one fill call regardless of wall count.
-    const inset = cell * 0.22; // core padding from cell edges
-    const tip = cell * 0.16; // how far spikes reach outside the core
-    const spikesPerSide = 4; // count of small triangles along each edge
+    const inset = cell * WALL_CORE_INSET; // core padding from cell edges
+    const tip = cell * WALL_SPIKE_TIP; // how far spikes reach outside the core
+    const spikesPerSide = WALL_SPIKES_PER_SIDE; // count of small triangles along each edge
 
     // O(1) neighbor check via the cached cell-keyed wall map.
     const wallMap = this._wallMap();
@@ -1199,7 +1254,7 @@ export default class Engine {
 
   _drawGameOver({ ox, oy }, w, h) {
     const { ctx } = this;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillStyle = `rgba(0, 0, 0, ${GAMEOVER_OVERLAY_ALPHA})`;
     ctx.fillRect(ox, oy, w, h);
   }
 }

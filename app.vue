@@ -1,9 +1,10 @@
 <template>
   <div class="crt">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <NuxtRouteAnnouncer />
-    <div class="main">
+    <div id="main-content" class="main">
       <div class="header">
-        <h1 class="title">A Series of Snakes</h1>
+        <h1 class="title">A SERIES OF SNAKES</h1>
         <NuxtLink
           v-if="showBack"
           to="/"
@@ -149,6 +150,33 @@ svg {
       rgba(12, 45, 25, 1) 55%,
       rgba(4, 18, 10, 1) 100%
     );
+}
+
+.skip-link {
+  // Hidden off-screen until focused; the standard "clip & translate"
+  // pattern keeps it discoverable by keyboard users without affecting
+  // visual layout.
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  color: v-bind(FG);
+  background: rgba(4, 18, 10, 0.95);
+  border: 0.15rem solid v-bind(FG);
+  text-decoration: none;
+  text-shadow: 0 0 0.3rem currentColor;
+
+  transform: translateY(-150%);
+  transition: transform 0.15s ease-out;
+
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    transform: translateY(0);
+  }
 }
 
 .main {

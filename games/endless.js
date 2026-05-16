@@ -5,6 +5,16 @@ import Engine from './engine.js';
 // ever-growing tail, so the timing stays constant and predictable.
 const TICK_RATE = 10;
 
+// Snake starts as a single visible cell. There's no food in this mode --
+// the trail grows by one segment per tick once the player starts moving.
+// Local override (not the shared engine `STARTING_LENGTH`) because the
+// trail-only design relies on the snake being a single cell at spawn.
+const ENDLESS_STARTING_LENGTH = 1;
+
+/**
+ * Endless: no food, no speed ramp -- the snake grows by one cell every
+ * tick and the score is just how long the trail gets before you cross it.
+ */
 export default class Endless extends Engine {
   constructor(canvas) {
     super(canvas, { tickRate: TICK_RATE });
@@ -13,11 +23,7 @@ export default class Endless extends Engine {
     // while idle; once the player picks a direction it starts moving and
     // grows by one segment every tick -- there is no food in this mode,
     // the "score" is just how long the trail gets before you cross it.
-    const head = {
-      x: Math.floor(Math.random() * this.cols),
-      y: Math.floor(Math.random() * this.rows),
-    };
-    this._snake = this.addSnake({ head, length: 1 });
+    this._snake = this.addSnakeAtRandomCell({ length: ENDLESS_STARTING_LENGTH });
     this._started = false;
 
     this.onInput(({ dir }) => {

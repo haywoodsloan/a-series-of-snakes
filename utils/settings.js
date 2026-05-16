@@ -11,12 +11,17 @@ const STORAGE_KEY = 'a-series-of-snakes:settings';
 // tick rate by the selected value.
 export const SPEED_OPTIONS = [0.25, 0.5, 1, 2];
 
-/** @typedef {{ baseSpeed: number, gridLines: boolean }} Settings */
+// Allowed values for the playfield grid size. The engine reads this at
+// construction time, so changes take effect on the next game start.
+export const GRID_SIZE_OPTIONS = [20, 25, 30, 40, 50];
+
+/** @typedef {{ baseSpeed: number, gridLines: boolean, gridSize: number }} Settings */
 
 /** @type {Settings} */
 const DEFAULTS = Object.freeze({
   baseSpeed: 1,
   gridLines: false,
+  gridSize: 25,
 });
 
 function safeStorage() {
@@ -44,6 +49,9 @@ function load() {
         typeof parsed.gridLines === 'boolean'
           ? parsed.gridLines
           : DEFAULTS.gridLines,
+      gridSize: GRID_SIZE_OPTIONS.includes(parsed.gridSize)
+        ? parsed.gridSize
+        : DEFAULTS.gridSize,
     };
   } catch {
     return { ...DEFAULTS };
@@ -60,7 +68,11 @@ export const settings = reactive(load());
 /** @type {Set<(s: Settings) => void>} */
 const listeners = new Set();
 watch(
-  () => ({ baseSpeed: settings.baseSpeed, gridLines: settings.gridLines }),
+  () => ({
+    baseSpeed: settings.baseSpeed,
+    gridLines: settings.gridLines,
+    gridSize: settings.gridSize,
+  }),
   (next) => {
     const ls = safeStorage();
     if (ls) {

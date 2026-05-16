@@ -1,5 +1,11 @@
 import { SNAKE_ALT } from '../utils/colors.js';
-import Engine from './engine.js';
+import Engine, { STARTING_LENGTH } from './engine.js';
+
+// Mirror needs an even column count so every cell has a distinct mirror
+// cell across the vertical center line -- with the engine's default
+// (odd) grid the center column would map to itself and break the
+// "snakes never share a cell" invariant.
+const COLS = 24;
 
 // Horizontal mirror for direction inputs. Vertical motion is unchanged so
 // both snakes always occupy the same row; horizontal motion is flipped so
@@ -11,13 +17,16 @@ const MIRROR_DIR = {
   right: 'left',
 };
 
+/**
+ * Mirror: two snakes that always move in mirrored directions across the
+ * vertical center line. One set of inputs drives both; either eating
+ * grows both. Forces an even column count so the reflection is exact.
+ */
 export default class Mirror extends Engine {
   constructor(canvas) {
     // Force an even number of columns so every cell has a distinct mirror
-    // cell across the vertical center line -- with the engine's default 25
-    // columns the center column would map to itself and break the "snakes
-    // never share a cell" invariant.
-    super(canvas, { cols: 24 });
+    // cell across the vertical center line -- see `COLS` above for why.
+    super(canvas, { cols: COLS });
 
     // Place the primary snake on the left half so its mirror lands on the
     // right half without overlap. The mirror is offset by exactly half the
@@ -35,10 +44,13 @@ export default class Mirror extends Engine {
 
     // Primary moves right by default; mirror moves left (its reflection).
     // Tint the mirror snake light blue so the two are visually distinct.
-    this._snakeA = this.addSnake({ head, length: 3, direction: 'right' });
+    this._snakeA = this.addSnake({
+      head,
+      length: STARTING_LENGTH,
+    });
     this._snakeB = this.addSnake({
       head: mirrorHead,
-      length: 3,
+      length: STARTING_LENGTH,
       direction: 'left',
       color: SNAKE_ALT,
     });

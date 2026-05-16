@@ -1,4 +1,4 @@
-import Engine from './engine.js';
+import Engine, { STARTING_LENGTH } from './engine.js';
 
 // Spikes plays exactly like classic, but the playfield is seeded with
 // random spike walls that kill the snake on contact.
@@ -6,26 +6,21 @@ import Engine from './engine.js';
 // Fraction of the grid filled with spike walls at game start.
 const WALL_RATIO = 0.1;
 
-// Cells of clearance kept around the snake's starting segments so the
-// initial spawn isn't an instant death trap. >= 2 satisfies the design
-// requirement that the snake never spawns within 2 squares of a wall.
-const SPAWN_CLEARANCE = 2;
-
+/**
+ * Spikes: classic rules on a board pre-seeded with clustered spike walls.
+ * Touching a wall ends the run just like hitting yourself.
+ */
 export default class Spikes extends Engine {
   constructor(canvas) {
     super(canvas);
 
-    const head = {
-      x: Math.floor(Math.random() * this.cols),
-      y: Math.floor(Math.random() * this.rows),
-    };
-    this._snake = this.addSnake({ head, length: 3 });
+    this._snake = this.addSnakeAtRandomCell({ length: STARTING_LENGTH });
     this._started = false;
 
     // Place walls before food: addRandomWalls reserves a buffer around the
     // snake, and addRandomFood already avoids wall cells via
     // randomEmptyCell, so spawning food afterward is safe.
-    this.addRandomWalls({ ratio: WALL_RATIO, clearance: SPAWN_CLEARANCE });
+    this.addRandomWalls({ ratio: WALL_RATIO });
     this.addRandomFood();
 
     this.onInput(({ dir }) => {

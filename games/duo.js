@@ -1,9 +1,14 @@
 import { SNAKE_ALT } from '../utils/colors.js';
-import Engine from './engine.js';
+import Engine, { STARTING_LENGTH } from './engine.js';
 
 const DIRECTIONS = ['up', 'down', 'left', 'right'];
 const randDir = () => DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
 
+/**
+ * Duo: two snakes share one board. WASD drives the primary snake; arrows
+ * drive the alt-tinted snake. Either snake eating grows both, and crashing
+ * into the other snake (idle or moving) ends the run.
+ */
 export default class Duo extends Engine {
   constructor(canvas) {
     super(canvas);
@@ -17,14 +22,12 @@ export default class Duo extends Engine {
     // WASD drives the primary (foreground) snake; arrows drive the
     // alt-tinted snake so the on-screen color matches the typical
     // "blue = second player" convention from the other multi-snake games.
-    this._snakeWasd = this.addSnake({
-      head: this.randomEmptyCell(),
-      length: 3,
+    this._snakeWasd = this.addSnakeAtRandomCell({
+      length: STARTING_LENGTH,
       direction: randDir(),
     });
-    this._snakeArrows = this.addSnake({
-      head: this.randomEmptyCell(),
-      length: 3,
+    this._snakeArrows = this.addSnakeAtRandomCell({
+      length: STARTING_LENGTH,
       direction: randDir(),
       color: SNAKE_ALT,
     });

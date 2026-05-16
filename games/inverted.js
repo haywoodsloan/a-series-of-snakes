@@ -1,4 +1,4 @@
-import Engine from './engine.js';
+import Engine, { STARTING_LENGTH } from './engine.js';
 
 // Flip table: up<->down, left<->right. Applied at the input source so the
 // engine's U-turn guard never sees the pre-flip direction.
@@ -9,15 +9,15 @@ const FLIP = {
   right: 'left',
 };
 
+/**
+ * Inverted controls: every direction input is flipped 180 degrees before
+ * being handed to the snake. Plays like classic, with your brain on backwards.
+ */
 export default class Inverted extends Engine {
   constructor(canvas) {
     super(canvas);
 
-    const head = {
-      x: Math.floor(Math.random() * this.cols),
-      y: Math.floor(Math.random() * this.rows),
-    };
-    this._snake = this.addSnake({ head, length: 3 });
+    this._snake = this.addSnakeAtRandomCell({ length: STARTING_LENGTH });
     this._started = false;
 
     this.addRandomFood();
