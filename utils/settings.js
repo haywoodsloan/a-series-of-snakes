@@ -9,7 +9,7 @@ const STORAGE_KEY = 'a-series-of-snakes:settings';
 // Allowed values for the base-speed multiplier. The dropdown in the
 // settings dialog uses these directly; the engine multiplies its requested
 // tick rate by the selected value.
-export const SPEED_OPTIONS = [0.25, 0.5, 1, 2];
+export const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 2];
 
 // Allowed values for the playfield grid size. The engine reads this at
 // construction time, so changes take effect on the next game start.

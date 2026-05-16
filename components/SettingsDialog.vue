@@ -313,6 +313,11 @@ watch(
     min-width: var(--settings-value-width);
     text-align: center;
     transform: scaleY(1.4);
+    // The value is non-interactive read-only text between two buttons;
+    // clicking-and-dragging to select it is never useful and just leaves
+    // a stray highlight when users miss the stepper buttons.
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .grid-size-x {
