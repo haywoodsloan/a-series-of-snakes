@@ -5,6 +5,7 @@ import endless from '~/assets/svg/endless.svg?raw';
 import inverted from '~/assets/svg/inverted.svg?raw';
 import mirror from '~/assets/svg/mirror.svg?raw';
 import spikes from '~/assets/svg/spikes.svg?raw';
+import tunnels from '~/assets/svg/tunnels.svg?raw';
 
 /** @typedef {GameList} */
 export default [
@@ -32,6 +33,11 @@ export default [
     name: 'spikes',
     load: () => import('./spikes.js'),
     preview: spikes,
+  },
+  {
+    name: 'tunnels',
+    load: () => import('./tunnels.js'),
+    preview: tunnels,
   },
   {
     name: 'inverted',

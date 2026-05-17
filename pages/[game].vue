@@ -57,6 +57,13 @@
           class="scoreboard"
           aria-label="High scores"
         >
+          <li
+            v-if="currentCategory"
+            class="scoreboard-category"
+            aria-label="Leaderboard category"
+          >
+            GRID {{ currentCategory.grid }} · SPEED {{ currentCategory.speed }}×
+          </li>
           <li class="scoreboard-header">
             <span class="rank">RANK</span>
             <span class="name">NAME</span>
@@ -110,6 +117,10 @@ const needsName = ref(false);
 const isTopScore = ref(false);
 const initials = ref('');
 const highScores = ref([]);
+// Parsed { grid, speed } describing the bucket the currently-displayed
+// scores belong to. Populated alongside `highScores`; null when the key
+// can't be parsed (e.g. legacy entries from before the namespaced key).
+const currentCategory = ref(null);
 // Index of the entry the player just submitted, so it can be highlighted
 // on the scoreboard. -1 when there's nothing to highlight.
 const currentIndex = ref(-1);
@@ -117,6 +128,20 @@ let instance = null;
 let GameClass = null;
 let currentName = null;
 let lastScore = 0;
+
+// Parse a namespaced engine `gameKey` (`<name>:g<size>:s<speed>`) into
+// the bucket's grid size and speed multiplier. Returns null for legacy
+// or otherwise unrecognized keys so the caller can hide the category
+// caption gracefully.
+function parseCategory(gameKey) {
+  if (typeof gameKey !== 'string') return null;
+  const m = gameKey.match(/:g(\d+):s([\d.]+)$/);
+  if (!m) return null;
+  const grid = Number(m[1]);
+  const speed = Number(m[2]);
+  if (!Number.isFinite(grid) || !Number.isFinite(speed)) return null;
+  return { grid, speed };
+}
 
 function destroyGame() {
   instance?.destroy();
@@ -141,6 +166,7 @@ function startGame() {
 function onGameOver(event) {
   showOverlay.value = true;
   lastScore = event.detail?.score ?? 0;
+  currentCategory.value = parseCategory(event.detail?.gameKey);
   // Always prompt for initials when the player actually scored, even if
   // the run won't land in the top 10; saveScore filters non-qualifying
   // entries out automatically. The label is louder when the score is the
@@ -172,6 +198,7 @@ function submitName() {
   if (initials.value.length < 3 || !instance) return;
   const list = instance.submitHighScore(initials.value);
   highScores.value = list;
+  currentCategory.value = parseCategory(instance.gameKey);
   // Find the player's entry. On a tie with one or more existing scores
   // the new entry is sorted to the bottom of the tie group (stable sort
   // preserves insertion order, and the new entry was just pushed), so
@@ -307,6 +334,18 @@ onBeforeUnmount(destroyGame);
     grid-template-columns: 5ch 1fr 9ch;
     column-gap: 2.25rem;
     align-items: center;
+  }
+
+  .scoreboard-category {
+    // Span the full row -- the category caption is a single piece of
+    // text and shouldn't share the rank/name/score column tracks.
+    display: block;
+    text-align: center;
+    color: v-bind(HIGH);
+    font-size: 1.1rem;
+    letter-spacing: 0.15rem;
+    opacity: 0.85;
+    margin-bottom: -0.2rem;
   }
 
   .scoreboard-header {

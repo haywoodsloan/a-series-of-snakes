@@ -26,6 +26,11 @@ export const HIGH = '#ff9e6b';
 // two read as visually distinct on the playfield.
 export const SNAKE_ALT = '#6bd4ff';
 
+// Tunnels mode HUD readout. Deliberately distinct from every possible
+// snake-segment color (FG, SNAKE_ALT, and the tunneled-segment overlay)
+// so the counter never visually blends with the snake it describes.
+export const TUNNEL_HUD = '#d96bff';
+
 // Wall/spike obstacle color. Light grey so spikes read as inert hazards
 // rather than another snake.
 export const WALL = '#bfbfbf';

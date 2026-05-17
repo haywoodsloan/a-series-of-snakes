@@ -68,7 +68,7 @@ const KEY_MAP = {
   KeyD: { kind: 'wasd', dir: 'right' },
 };
 
-const SCORE_FONT = '28px PublicPixel, monospace';
+export const SCORE_FONT = '28px PublicPixel, monospace';
 
 /**
  * Shared speed-ramp tuning used by the default `onEat` so every game with
@@ -174,6 +174,14 @@ export default class Engine {
     this._maxFrameDt = 0.25;
     this._running = false;
 
+    // Fraction of the current tick interval that must have elapsed before
+    // an input-driven early tick fires (see `_maybeAdvanceTickForInput`).
+    // 0.5 is a sweet spot from arcade-style games: turns pressed in the
+    // second half of a tick feel instant, while turns pressed right after
+    // a tick stay aligned to the grid cadence so the snake doesn't appear
+    // to jitter on every keypress.
+    this._inputResponseThreshold = 0.5;
+
     // Canvas content only changes on tick/resize/state-change, not on every
     // animation frame. The loop calls `render()` only when this is true.
     this._dirty = true;
@@ -261,7 +269,10 @@ export default class Engine {
       const dt = Math.min(this._maxFrameDt, (now - this._lastFrame) / 1000);
       this._lastFrame = now;
 
-      // Fixed-step logic, dirty-flag rendering.
+      // Fixed-step logic with dirty-flag rendering. Each tick advances
+      // the simulation by one cell on the grid; the canvas is repainted
+      // only when state actually changed, giving the classic arcade
+      // snap-to-grid look without per-frame redraws.
       this._tickAccum += dt;
       while (this._tickAccum >= this._tickInterval) {
         this._tickAccum -= this._tickInterval;
@@ -339,6 +350,13 @@ export default class Engine {
       // timing from the simulation tick so multiple key presses between
       // ticks can't combine into an illegal U-turn.
       nextDirection: direction,
+      // One-slot buffer for a *second* direction pressed within the same
+      // tick. Without this, rapid "right then down"-style inputs between
+      // ticks would overwrite each other and the snake would only take
+      // the first turn. The buffered direction is validated against
+      // `nextDirection` (the move that will commit first) and applied on
+      // the tick after that one.
+      bufferedDirection: null,
       color,
     };
     this.snakes.push(snake);
@@ -368,6 +386,13 @@ export default class Engine {
     // Commit the queued direction at step time so each tick advances by at
     // most one direction change relative to the snake's last actual move.
     snake.direction = snake.nextDirection;
+    // Drain one buffered turn (queued while `nextDirection` was already
+    // pending) so a quick two-key sequence between ticks produces both
+    // turns on consecutive ticks instead of dropping the first one.
+    if (snake.bufferedDirection) {
+      snake.nextDirection = snake.bufferedDirection;
+      snake.bufferedDirection = null;
+    }
 
     const head = snake.segments[0];
     const delta = DIRECTION_DELTAS[snake.direction];
@@ -471,8 +496,24 @@ export default class Engine {
    * @param {Direction} dir
    */
   setDirection(snake, dir) {
-    if (OPPOSITE[dir] === snake.direction && snake.segments.length > 1) return;
-    snake.nextDirection = dir;
+    // Validate against the most recent *queued* direction so the buffered
+    // turn can't form a U-turn against the move that will execute right
+    // before it. If no turn is queued yet for this tick, just set it.
+    if (snake.nextDirection === snake.direction) {
+      if (OPPOSITE[dir] === snake.direction && snake.segments.length > 1) return;
+      if (dir === snake.direction) return;
+      snake.nextDirection = dir;
+      // A fresh primary turn is the highest-value case for an early tick:
+      // the player pressed a key expecting an immediate response.
+      this._maybeAdvanceTickForInput();
+      return;
+    }
+    // A turn is already pending for the next tick. Buffer this one to
+    // apply on the tick after, rejecting reversals against the pending
+    // direction and ignoring no-op repeats.
+    if (OPPOSITE[dir] === snake.nextDirection && snake.segments.length > 1) return;
+    if (dir === snake.nextDirection) return;
+    snake.bufferedDirection = dir;
   }
 
   // ---------- Food ----------
@@ -842,8 +883,43 @@ export default class Engine {
     const mapped = KEY_MAP[event.code];
     if (!mapped) return;
     event.preventDefault();
+    // Auto-repeat (held key) just re-asserts the same direction the snake
+    // is already heading; passing it through wastes work and, worse,
+    // could displace a genuine perpendicular press out of the buffer.
+    if (event.repeat) return;
     const info = { kind: mapped.kind, dir: mapped.dir, event };
     for (const fn of this._inputHandlers) fn(info);
+  }
+
+  /**
+   * If a turn has been queued and the simulation is past the responsiveness
+   * threshold of the current tick, advance one logic step *now* so the
+   * turn lands on the player's input frame instead of waiting up to a
+   * full tick interval. This is the classic "input-driven tick advance"
+   * trick used by arcade games to make discrete-grid movement feel
+   * frame-accurate without sacrificing fixed-step determinism: the next
+   * tick still fires one full interval later, so average speed is
+   * unchanged -- only the *phase* of the tick shifts toward the input.
+   *
+   * Called by `setDirection` whenever it actually queues a change.
+   */
+  _maybeAdvanceTickForInput() {
+    if (!this._running || this.gameOver) return;
+    // Include time elapsed since the last RAF frame so a press between
+    // frames is judged against the real wall-clock phase, not the stale
+    // accumulator from the previous frame.
+    const now = performance.now();
+    const sinceFrame = Math.max(0, (now - this._lastFrame) / 1000);
+    const realAccum = this._tickAccum + sinceFrame;
+    if (realAccum < this._tickInterval * this._inputResponseThreshold) return;
+
+    this.update(this._tickInterval);
+    this._dirty = true;
+    // Re-baseline timing so the *next* tick is a full interval away --
+    // pulling a tick forward must not also shorten the following one,
+    // which would briefly double the perceived speed.
+    this._lastFrame = now;
+    this._tickAccum = 0;
   }
 
   // ---------- Overridable hooks ----------

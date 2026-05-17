@@ -1,0 +1,36 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  preserveAspectRatio="xMidYMid meet"
+  width="100%"
+  height="100%"
+>
+  <!-- Snake whose body crosses through itself. Each cell is 9.6x9.6 on
+       a 10x10 grid. The single cell where the body overlaps is rendered
+       in the alt-snake color to mark the "tunneled" segment. -->
+  <g class="fg">
+    <!-- Head + body approaching from the left -->
+    <rect x="12.0" y="50.4" width="9.6" height="9.6" />
+    <rect x="21.6" y="50.4" width="9.6" height="9.6" />
+    <!-- Body continuing past the crossing -->
+    <rect x="40.8" y="50.4" width="9.6" height="9.6" />
+    <rect x="50.4" y="50.4" width="9.6" height="9.6" />
+    <!-- Down the right side of the loop -->
+    <rect x="50.4" y="60.0" width="9.6" height="9.6" />
+    <rect x="50.4" y="69.6" width="9.6" height="9.6" />
+    <!-- Across the bottom -->
+    <rect x="40.8" y="69.6" width="9.6" height="9.6" />
+    <rect x="31.2" y="69.6" width="9.6" height="9.6" />
+    <!-- Up the left side of the loop -->
+    <rect x="31.2" y="60.0" width="9.6" height="9.6" />
+    <!-- Past the crossing, continuing up to the tail -->
+    <rect x="31.2" y="40.8" width="9.6" height="9.6" />
+    <rect x="31.2" y="31.2" width="9.6" height="9.6" />
+  </g>
+
+  <!-- Tunneled segment: the cell where the body crosses itself. -->
+  <rect class="snake-alt" x="31.2" y="50.4" width="9.6" height="9.6" />
+
+  <!-- Food pellet, well clear of the loop. -->
+  <rect class="food" x="79.2" y="21.6" width="9.6" height="9.6" />
+</svg>
