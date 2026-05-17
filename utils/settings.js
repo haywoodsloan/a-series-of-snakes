@@ -15,7 +15,7 @@ export const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 2];
 // construction time, so changes take effect on the next game start.
 export const GRID_SIZE_OPTIONS = [20, 30, 50, 75, 100];
 
-/** @typedef {{ baseSpeed: number, gridLines: boolean, gridSize: number }} Settings */
+// The `Settings` type is declared globally in `types.d.ts`.
 
 /** @type {Settings} */
 const DEFAULTS = Object.freeze({

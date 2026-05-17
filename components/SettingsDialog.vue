@@ -34,7 +34,10 @@
               >
                 &lt;
               </button>
-              <span class="value">{{ settings.baseSpeed }}<span class="unit-suffix">X</span></span>
+              <span class="value"
+                >{{ settings.baseSpeed
+                }}<span class="unit-suffix">X</span></span
+              >
               <button
                 type="button"
                 class="step"
@@ -59,7 +62,10 @@
               >
                 &lt;
               </button>
-              <span class="value">{{ settings.gridSize }}<span class="unit-x">X</span>{{ settings.gridSize }}</span>
+              <span class="value"
+                >{{ settings.gridSize }}<span class="unit-x">X</span
+                >{{ settings.gridSize }}</span
+              >
               <button
                 type="button"
                 class="step"
@@ -193,7 +199,10 @@ watch(
         typeof document !== 'undefined' ? document.activeElement : null;
       await nextTick();
       panelRef.value?.focus();
-    } else if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+    } else if (
+      previouslyFocused &&
+      typeof previouslyFocused.focus === 'function'
+    ) {
       previouslyFocused.focus();
       previouslyFocused = null;
     }

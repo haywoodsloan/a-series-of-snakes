@@ -7,7 +7,7 @@ import mirror from '~/assets/svg/mirror.svg?raw';
 import spikes from '~/assets/svg/spikes.svg?raw';
 import tunnels from '~/assets/svg/tunnels.svg?raw';
 
-/** @typedef {GameList} */
+/** @type {GameList} */
 export default [
   {
     name: 'classic',

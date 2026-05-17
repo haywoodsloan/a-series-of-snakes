@@ -70,9 +70,9 @@ export default class Tunnels extends Engine {
    */
   onCollision(collision) {
     if (
-      collision.type !== 'self'
-      || collision.snake !== this._snake
-      || this._tunnelsRemaining <= 0
+      collision.type !== 'self' ||
+      collision.snake !== this._snake ||
+      this._tunnelsRemaining <= 0
     ) {
       super.onCollision(collision);
       return;
@@ -115,11 +115,7 @@ export default class Tunnels extends Engine {
     // the counter stays readable against (and never blends into) the
     // body or the tunneled-segment overlay.
     ctx.fillStyle = TUNNEL_HUD;
-    ctx.fillText(
-      `TUNNELS ${this._tunnelsRemaining}`,
-      ox + w / 2,
-      oy + pad
-    );
+    ctx.fillText(`TUNNELS ${this._tunnelsRemaining}`, ox + w / 2, oy + pad);
     ctx.textAlign = 'start';
     ctx.shadowBlur = 0;
   }

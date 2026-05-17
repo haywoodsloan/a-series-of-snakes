@@ -1,30 +1,5 @@
-/**
- * @typedef {{ x: number, y: number }} Point
- * @typedef {'up' | 'down' | 'left' | 'right'} Direction
- *
- * @typedef {Object} Snake
- * @property {Point[]} segments     Body segments, head first.
- * @property {number} length        Target length (segments grow toward this).
- * @property {Direction} direction  Current movement direction.
- * @property {string} [color]       Optional fill color.
- * @property {boolean} [dead]       Set by the engine when a collision occurs.
- *
- * @typedef {'wasd' | 'arrows'} InputKind
- *
- * @typedef {'self' | 'snake' | 'wall'} CollisionType
- *
- * @typedef {Object} Collision
- * @property {Snake} snake             The snake whose head moved into something.
- * @property {CollisionType} type      What was hit.
- * @property {Snake} [other]           For type='snake', the snake that was hit.
- * @property {Wall} [wall]             For type='wall', the wall that was hit.
- * @property {Point} at                The cell the head ended up in.
- *
- * @typedef {Object} Wall
- * @property {number} x                Grid column.
- * @property {number} y                Grid row.
- * @property {string} [color]          Optional fill color (defaults to WALL).
- */
+// Shared types (`Point`, `Direction`, `Snake`, `Food`, `Wall`, `InputKind`,
+// `CollisionType`, `Collision`) are declared globally in `types.d.ts`.
 import {
   FG,
   FOOD as FOOD_COLOR,
@@ -89,12 +64,12 @@ export const MAX_TICK_RATE = 20;
 export const STARTING_LENGTH = 3;
 
 // Rendering constants.
-const BORDER_RATIO = 0.1;            // Border thickness as fraction of cell size.
-const WALL_CORE_INSET = 0.22;        // Wall core padding from cell edges (fraction of cell).
-const WALL_SPIKE_TIP = 0.16;         // Spike protrusion outside the core (fraction of cell).
-const WALL_SPIKES_PER_SIDE = 4;      // Triangle count along each unmerged wall edge.
-const GRID_LINE_ALPHA = 0.12;        // Opacity of optional grid overlay.
-const GAMEOVER_OVERLAY_ALPHA = 0.6;  // Dim layer drawn over the playfield on game over.
+const BORDER_RATIO = 0.1; // Border thickness as fraction of cell size.
+const WALL_CORE_INSET = 0.22; // Wall core padding from cell edges (fraction of cell).
+const WALL_SPIKE_TIP = 0.16; // Spike protrusion outside the core (fraction of cell).
+const WALL_SPIKES_PER_SIDE = 4; // Triangle count along each unmerged wall edge.
+const GRID_LINE_ALPHA = 0.12; // Opacity of optional grid overlay.
+const GAMEOVER_OVERLAY_ALPHA = 0.6; // Dim layer drawn over the playfield on game over.
 
 // randomEmptyCell tuning: cap retries so almost-full boards fall back to
 // a deterministic scan instead of spinning.
@@ -505,7 +480,8 @@ export default class Engine {
     // turn can't form a U-turn against the move that will execute right
     // before it. If no turn is queued yet for this tick, just set it.
     if (snake.nextDirection === snake.direction) {
-      if (OPPOSITE[dir] === snake.direction && snake.segments.length > 1) return;
+      if (OPPOSITE[dir] === snake.direction && snake.segments.length > 1)
+        return;
       if (dir === snake.direction) return;
       snake.nextDirection = dir;
       // A fresh primary turn is the highest-value case for an early tick:
@@ -516,7 +492,8 @@ export default class Engine {
     // A turn is already pending for the next tick. Buffer this one to
     // apply on the tick after, rejecting reversals against the pending
     // direction and ignoring no-op repeats.
-    if (OPPOSITE[dir] === snake.nextDirection && snake.segments.length > 1) return;
+    if (OPPOSITE[dir] === snake.nextDirection && snake.segments.length > 1)
+      return;
     if (dir === snake.nextDirection) return;
     snake.bufferedDirection = dir;
   }

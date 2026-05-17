@@ -23,7 +23,9 @@ export default class Endless extends Engine {
     // while idle; once the player picks a direction it starts moving and
     // grows by one segment every tick -- there is no food in this mode,
     // the "score" is just how long the trail gets before you cross it.
-    this._snake = this.addSnakeAtRandomCell({ length: ENDLESS_STARTING_LENGTH });
+    this._snake = this.addSnakeAtRandomCell({
+      length: ENDLESS_STARTING_LENGTH,
+    });
     this._started = false;
 
     this.onInput(({ dir }) => {

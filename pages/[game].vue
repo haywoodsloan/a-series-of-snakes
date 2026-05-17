@@ -62,7 +62,9 @@
             class="scoreboard-category"
             aria-label="Leaderboard category"
           >
-            GRID {{ currentCategory.grid }}<span class="unit-x">X</span>{{ currentCategory.grid }} // SPEED {{ currentCategory.speed }}<span class="unit-suffix">X</span>
+            GRID {{ currentCategory.grid }}<span class="unit-x">X</span
+            >{{ currentCategory.grid }} // SPEED {{ currentCategory.speed
+            }}<span class="unit-suffix">X</span>
           </li>
           <li class="scoreboard-header">
             <span class="rank">RANK</span>
