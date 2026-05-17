@@ -136,9 +136,14 @@ export default class Engine {
     this.cols = cols;
     this.rows = rows;
 
-    // High-score persistence key. Defaults to the constructor name in lower
-    // case so subclasses get a sane per-game bucket without extra wiring.
-    this.gameKey = (gameKey ?? this.constructor.name).toLowerCase();
+    // High-score persistence key. The base name defaults to the
+    // constructor in lower case; we namespace it by grid size and speed
+    // multiplier so each (game, grid, speed) bucket gets its own
+    // leaderboard. Grids are always square, so a single `g<size>` axis
+    // covers it. Page chrome parses this format back out to label the
+    // post-game scoreboard with its category.
+    const base = (gameKey ?? this.constructor.name).toLowerCase();
+    this.gameKey = `${base}:g${this.cols}:s${settings.baseSpeed}`;
     this.highScore = topScore(this.gameKey);
 
     // Game state.

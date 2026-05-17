@@ -62,7 +62,7 @@
             class="scoreboard-category"
             aria-label="Leaderboard category"
           >
-            GRID {{ currentCategory.grid }} · SPEED {{ currentCategory.speed }}×
+            GRID {{ currentCategory.grid }}<span class="unit-x">X</span>{{ currentCategory.grid }} // SPEED {{ currentCategory.speed }}<span class="unit-suffix">X</span>
           </li>
           <li class="scoreboard-header">
             <span class="rank">RANK</span>
@@ -345,7 +345,21 @@ onBeforeUnmount(destroyGame);
     font-size: 1.1rem;
     letter-spacing: 0.15rem;
     opacity: 0.85;
-    margin-bottom: -0.2rem;
+    margin-bottom: 0.2rem;
+
+    .unit-x {
+      // Match the settings menu's grid separator: shrink the `X` so it
+      // reads as a divider instead of competing with the digits.
+      font-size: 0.65em;
+      margin: 0 0.4em;
+      vertical-align: 0.15em;
+    }
+
+    .unit-suffix {
+      // Match the settings menu's speed unit: tighter-than-a-space gap
+      // between the number and its unit `X`, kept at full size.
+      margin-left: 0.25em;
+    }
   }
 
   .scoreboard-header {
