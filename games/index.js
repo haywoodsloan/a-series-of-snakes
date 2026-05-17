@@ -20,6 +20,21 @@ export default [
     preview: chase,
   },
   {
+    name: 'tunnels',
+    load: () => import('./tunnels.js'),
+    preview: tunnels,
+  },
+  {
+    name: 'spikes',
+    load: () => import('./spikes.js'),
+    preview: spikes,
+  },
+  {
+    name: 'endless',
+    load: () => import('./endless.js'),
+    preview: endless,
+  },
+  {
     name: 'mirror',
     load: () => import('./mirror.js'),
     preview: mirror,
@@ -30,23 +45,8 @@ export default [
     preview: duo,
   },
   {
-    name: 'spikes',
-    load: () => import('./spikes.js'),
-    preview: spikes,
-  },
-  {
-    name: 'tunnels',
-    load: () => import('./tunnels.js'),
-    preview: tunnels,
-  },
-  {
     name: 'inverted',
     load: () => import('./inverted.js'),
     preview: inverted,
-  },
-  {
-    name: 'endless',
-    load: () => import('./endless.js'),
-    preview: endless,
   },
 ];
