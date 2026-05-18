@@ -64,7 +64,7 @@ export function qualifies(gameKey, score) {
   if (!Number.isFinite(score) || score <= 0) return false;
   const list = loadScores(gameKey);
   if (list.length < MAX_ENTRIES) return true;
-  return score > list[list.length - 1].score;
+  return score > list.at(-1).score;
 }
 
 /** Highest stored score, or 0 if none. */

@@ -51,9 +51,9 @@ export default class Tunnels extends Engine {
    */
   stepSnake(snake) {
     const segs = snake.segments;
-    const prevTail = segs[segs.length - 1];
+    const prevTail = segs.at(-1);
     const result = super.stepSnake(snake);
-    if (prevTail?.tunneled && segs[segs.length - 1] !== prevTail) {
+    if (prevTail?.tunneled && segs.at(-1) !== prevTail) {
       this._tunnelsRemaining += 1;
     }
     return result;

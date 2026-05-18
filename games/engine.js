@@ -1103,13 +1103,11 @@ export default class Engine {
 
     /** @type {Map<string, Path2D>} */
     const buckets = new Map();
-    for (const w of this.walls) {
-      const color = w.color ?? WALL_COLOR;
-      let path = buckets.get(color);
-      if (!path) {
-        path = new Path2D();
-        buckets.set(color, path);
-      }
+    const byColor = Map.groupBy(this.walls, (w) => w.color ?? WALL_COLOR);
+    for (const [color, walls] of byColor) {
+      const path = new Path2D();
+      buckets.set(color, path);
+      for (const w of walls) {
       const x = ox + w.x * cell;
       const y = oy + w.y * cell;
 
@@ -1227,6 +1225,7 @@ export default class Engine {
           path.closePath();
         }
       }
+      }
     }
 
     return buckets;
@@ -1235,18 +1234,12 @@ export default class Engine {
   _drawFood({ cell, ox, oy }) {
     if (!this.food.length) return;
     const { ctx } = this;
-    /** @type {Map<string, Path2D>} */
-    const buckets = new Map();
-    for (const p of this.food) {
-      const color = p.color ?? FOOD_COLOR;
-      let path = buckets.get(color);
-      if (!path) {
-        path = new Path2D();
-        buckets.set(color, path);
+    const byColor = Map.groupBy(this.food, (p) => p.color ?? FOOD_COLOR);
+    for (const [color, pellets] of byColor) {
+      const path = new Path2D();
+      for (const p of pellets) {
+        path.rect(ox + p.x * cell, oy + p.y * cell, cell, cell);
       }
-      path.rect(ox + p.x * cell, oy + p.y * cell, cell, cell);
-    }
-    for (const [color, path] of buckets) {
       ctx.fillStyle = color;
       ctx.fill(path);
     }

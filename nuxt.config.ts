@@ -1,4 +1,11 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+// Test builds opt in to sourcemaps via `NUXT_TEST=1` so Playwright
+// failures and browser console errors map back to source files. The
+// deploy / production build leaves the flag unset, so the public
+// bundle ships without `.map` sidecars.
+const isTestBuild = process.env.NUXT_TEST === '1';
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-05-10',
   devtools: { enabled: true },
@@ -37,8 +44,9 @@ export default defineNuxtConfig({
     },
   },
 
-  // Drop noisy dev features and source maps from the production bundle.
-  sourcemap: { client: false, server: false },
+  // Drop noisy dev features from the production bundle. Sourcemaps are
+  // emitted only for test builds (opt in via `NUXT_TEST=1`).
+  sourcemap: { client: isTestBuild, server: isTestBuild },
   features: { devLogs: false },
   experimental: {
     // Workaround for Nuxt 4.4.4 SPA dev regression:

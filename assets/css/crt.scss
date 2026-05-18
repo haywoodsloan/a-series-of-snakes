@@ -68,10 +68,7 @@
   content: ' ';
   display: block;
   position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
+  inset: 0;
   // Slightly warmed tint so the flicker reads like a CRT cathode glow
   // instead of a flat gray overlay.
   background: rgba(28, 22, 18, 0.12);
@@ -86,10 +83,7 @@
   content: ' ';
   display: block;
   position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
+  inset: 0;
   // Stack three CRT artifacts in one layer:
   //  1. tight horizontal scanlines (~1px dark / 1px transparent),
   //  2. an aperture-grille RGB subpixel mask (red/green/blue triads),

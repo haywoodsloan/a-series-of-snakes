@@ -111,10 +111,9 @@ import {
   settings,
 } from '~/utils/settings.js';
 
-const props = defineProps({
-  open: { type: Boolean, default: false },
-});
-const emit = defineEmits(['close']);
+// Two-way boolean binding: parent uses `v-model` (defaults to the `modelValue`
+// prop / `update:modelValue` event); the dialog flips it to false on dismiss.
+const open = defineModel({ type: Boolean, default: false });
 
 const panelRef = ref(null);
 // Element to restore focus to when the dialog closes -- captured at open.
@@ -185,14 +184,14 @@ function stepGridSize(delta) {
 }
 
 function close() {
-  emit('close');
+  open.value = false;
 }
 
 // Move focus into the panel when it opens so Esc-to-close works without
 // the user having to click first. Also save/restore the previously-focused
 // element so closing the dialog returns focus to its trigger.
 watch(
-  () => props.open,
+  open,
   async (isOpen) => {
     if (isOpen) {
       previouslyFocused =

@@ -29,7 +29,7 @@
     >
       <span class="asterisk" aria-hidden="true">*</span> SETTINGS
     </button>
-    <SettingsDialog :open="showSettings" @close="showSettings = false" />
+    <SettingsDialog v-model="showSettings" />
   </div>
 </template>
 

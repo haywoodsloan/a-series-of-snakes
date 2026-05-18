@@ -1,0 +1,103 @@
+# Runs the full test suite on every push to main. When the suite passes,
+# fast-forwards (or merges) main into develop so develop tracks the known-
+# good tip of main automatically.
+name: Test and sync to develop
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Don't let two pushes race the develop sync.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit + integration tests (with coverage threshold gate)
+        # Runs the unit + integration suites under V8 coverage. The
+        # `coverage.thresholds` config in vitest.config.ts fails the
+        # step if any of statements/branches/functions/lines drop below
+        # the configured floors -- so this single step replaces the
+        # per-suite invocations and gates coverage in one pass.
+        run: npm run test:coverage
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: E2E tests (chromium + firefox)
+        run: npm run test:e2e
+        env:
+          CI: '1'
+
+      - name: Visual regression tests
+        run: npm run test:visual
+        env:
+          CI: '1'
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  sync-develop:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # We need a token that can push to develop. Falls back to
+          # GITHUB_TOKEN, which can push to the same repo by default.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fast-forward develop to main
+        run: |
+          set -euo pipefail
+          git fetch origin main develop || git fetch origin main
+          # Create develop locally tracking origin/develop if it exists,
+          # otherwise branch it off the just-tested main commit.
+          if git ls-remote --exit-code --heads origin develop >/dev/null 2>&1; then
+            git checkout -B develop origin/develop
+          else
+            git checkout -B develop origin/main
+          fi
+          # Try a fast-forward first. If develop has diverged, fall back
+          # to a non-FF merge so the test-passing main tip still lands on
+          # develop. This will fail loudly on real conflicts.
+          if git merge --ff-only origin/main; then
+            echo "Fast-forward merge succeeded."
+          else
+            echo "Develop has diverged; performing a merge commit."
+            git merge --no-ff origin/main \
+              -m "chore(ci): sync develop with tested main @ ${{ github.sha }}"
+          fi
+          git push origin develop
