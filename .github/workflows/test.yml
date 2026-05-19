@@ -47,14 +47,21 @@ jobs:
         run: npm run test:e2e
         env:
           CI: '1'
+          # Each suite's HTML report lands in its own subdirectory so
+          # the e2e and visual runs don't clobber each other.
+          PLAYWRIGHT_HTML_REPORT: playwright-report/e2e
 
       - name: Visual regression tests
         run: npm run test:visual
         env:
           CI: '1'
+          PLAYWRIGHT_HTML_REPORT: playwright-report/visual
 
-      - name: Upload Playwright report on failure
-        if: failure()
+      - name: Upload Playwright reports
+        # `always()` so the HTML report is available even on a green
+        # run for inspection. The job's overall success/failure status
+        # still reflects the test steps above.
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
