@@ -15,13 +15,13 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   // In CI, emit GitHub annotations (inline PR diff highlights), a
-  // concise stdout list, and an HTML report. The HTML report lives in
-  // `playwright-report/` and is uploaded as a build artifact on failure
-  // (see .github/workflows/test.yml) for offline diff inspection.
-  // `open: 'never'` keeps Playwright from trying to spawn a browser in
-  // the headless CI runner after the suite finishes.
+  // concise stdout list, and a `blob` report. Blob reports are
+  // Playwright's portable intermediate format -- each suite writes its
+  // own blob, and the workflow's final step combines them via
+  // `playwright merge-reports --reporter=html` into a single HTML
+  // report uploaded as the build artifact.
   reporter: process.env.CI
-    ? [['github'], ['list'], ['html', { open: 'never' }]]
+    ? [['github'], ['list'], ['blob']]
     : 'list',
   timeout: 30_000,
   // Visual baselines are platform-agnostic: one PNG per assertion, shared
