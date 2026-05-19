@@ -96,6 +96,22 @@ textarea {
   font-display: swap;
 }
 
+// Honor the OS-level "reduce motion" preference: collapse every
+// animation + transition to a near-instant 1ms so users with vestibular
+// disorders aren't subjected to the CRT jitter / flicker / snow loops.
+// This also keeps Playwright's "element is stable" checks happy in
+// e2e tests, which run with reducedMotion: 'reduce' so clicks don't
+// chase the hsync jitter on the .crt container.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
 // Interactive controls shouldn't be draggable or text-selectable -- dragging
 // an anchor in particular kicks off a browser drag-and-drop with a ghost
 // image, which is never what we want for in-app navigation.

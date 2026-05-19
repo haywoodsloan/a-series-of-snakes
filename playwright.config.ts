@@ -39,6 +39,11 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:3000/',
     trace: 'on-first-retry',
+    // Emulate `prefers-reduced-motion: reduce` for every test. The app
+    // honors it (see app.vue) by collapsing every animation/transition
+    // to ~1ms, which keeps Playwright's "element is stable" check from
+    // chasing the CRT hsync-jitter on `.crt` and other infinite loops.
+    contextOptions: { reducedMotion: 'reduce' },
   },
   projects: [
     {
