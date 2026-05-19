@@ -35,10 +35,13 @@ export default defineConfig({
     toHaveScreenshot: {
       // Just enough slack to absorb font-hinting + subpixel AA
       // differences between OSes on the shared cross-OS baseline,
-      // without letting real color regressions through. A ~1% shift in
-      // any single channel on >0.5% of pixels trips the gate.
-      maxDiffPixelRatio: 0.005,
-      threshold: 0.08,
+      // without letting real color regressions through. Tuned against
+      // the actual cross-OS noise floor: Windows-captured baselines
+      // diff ~1% against Linux Chromium rendering even when the page
+      // is byte-identical. A ~1.5% gate is below the 4% diff a
+      // visible color regression produces but above that floor.
+      maxDiffPixelRatio: 0.015,
+      threshold: 0.1,
       animations: 'disabled',
       caret: 'hide',
     },
