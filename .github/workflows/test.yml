@@ -1,7 +1,7 @@
 # Runs the full test suite on every push to main. When the suite passes,
-# fast-forwards (or merges) main into develop so develop tracks the known-
-# good tip of main automatically.
-name: Test and sync to develop
+# fast-forwards (or merges) main into deploy, which triggers the
+# `deploy.yml` workflow to publish the static site to GitHub Pages.
+name: Test and publish
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
   workflow_dispatch:
 
-# Don't let two pushes race the develop sync.
+# Don't let two pushes race the deploy sync.
 concurrency:
   group: test-${{ github.ref }}
   cancel-in-progress: false
@@ -63,23 +63,24 @@ jobs:
             test-results/
           retention-days: 7
 
-  sync-develop:
+  publish:
     needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           # GITHUB_TOKEN can push to the same repo as long as the
           # workflow has `contents: write` and the target branch has no
-          # protection rule that requires PR review. If develop is
+          # protection rule that requires PR review. If deploy is
           # protected, swap this for a PAT or a GitHub App token via
           # secrets and update the env var below.
           token: ${{ secrets.GITHUB_TOKEN }}
           # Make sure both branches are present locally regardless of
-          # whether origin/develop exists yet.
+          # whether origin/deploy exists yet.
           ref: main
 
       - name: Configure git identity
@@ -95,34 +96,46 @@ jobs:
           git --version
           git remote -v
           git log -1 --oneline origin/main
-          git ls-remote --heads origin develop || echo "(develop does not exist on origin yet)"
+          git ls-remote --heads origin deploy || echo "(deploy does not exist on origin yet)"
 
-      - name: Fast-forward develop to main
+      - name: Fast-forward deploy to main
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          if git ls-remote --exit-code --heads origin develop >/dev/null 2>&1; then
-            echo "::group::develop exists on origin -- checking out and trying ff merge"
-            git fetch --no-tags origin develop
-            git checkout -B develop origin/develop
+          if git ls-remote --exit-code --heads origin deploy >/dev/null 2>&1; then
+            echo "::group::deploy exists on origin -- checking out and trying ff merge"
+            git fetch --no-tags origin deploy
+            git checkout -B deploy origin/deploy
             if git merge --ff-only origin/main; then
               echo "Fast-forward merge succeeded."
             else
-              echo "Develop has diverged; performing a merge commit."
+              echo "Deploy has diverged; performing a merge commit."
               git merge --no-ff origin/main \
-                -m "chore(ci): sync develop with tested main @ ${{ github.sha }}"
+                -m "chore(ci): publish tested main @ ${{ github.sha }}"
             fi
             echo "::endgroup::"
           else
-            echo "develop missing on origin -- creating it at the tested main commit"
-            git checkout -B develop origin/main
+            echo "deploy missing on origin -- creating it at the tested main commit"
+            git checkout -B deploy origin/main
           fi
 
           echo "::group::local state before push"
           git status
-          git log -3 --oneline develop
+          git log -3 --oneline deploy
           echo "::endgroup::"
 
           # Verbose push so the log makes it obvious if a protected
           # branch / token scope rejected the update.
-          git push --verbose origin develop:develop
+          git push --verbose origin deploy:deploy
+
+      - name: Trigger deploy workflow
+        # `git push` performed with GITHUB_TOKEN does not start
+        # downstream `push`-triggered workflows (GitHub's anti-recursion
+        # safeguard). `workflow_dispatch` is exempt, so we dispatch
+        # deploy.yml explicitly against the deploy branch we just
+        # advanced. The `actions: write` permission below is required
+        # for this API call.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run deploy.yml --ref deploy
