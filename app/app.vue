@@ -159,7 +159,7 @@ svg {
   min-width: 1300px;
   min-height: 800px;
   background:
-    url('/image/noise.png'),
+    url('~/assets/image/noise.png'),
     radial-gradient(
       ellipse at center,
       rgba(20, 65, 38, 1) 0%,

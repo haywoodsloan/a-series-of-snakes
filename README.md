@@ -76,6 +76,7 @@ app/                           Nuxt v4 srcDir (application code)
     settings.js                Reactive settings, also localStorage
   assets/
     css/crt.scss               Scanlines, hsync jitter, snow, glow
+    image/                     Build-processed images (e.g. CRT noise tile)
     svg/                       Preview tiles for the picker
 public/                        Static assets served at the site root
 tests/
