@@ -66,38 +66,63 @@ jobs:
   sync-develop:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # We need a token that can push to develop. Falls back to
-          # GITHUB_TOKEN, which can push to the same repo by default.
+          # GITHUB_TOKEN can push to the same repo as long as the
+          # workflow has `contents: write` and the target branch has no
+          # protection rule that requires PR review. If develop is
+          # protected, swap this for a PAT or a GitHub App token via
+          # secrets and update the env var below.
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Make sure both branches are present locally regardless of
+          # whether origin/develop exists yet.
+          ref: main
 
       - name: Configure git identity
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Print sync context
+        run: |
+          echo "Triggering SHA:    ${{ github.sha }}"
+          echo "Repo:              ${{ github.repository }}"
+          echo "Actor:             ${{ github.actor }}"
+          git --version
+          git remote -v
+          git log -1 --oneline origin/main
+          git ls-remote --heads origin develop || echo "(develop does not exist on origin yet)"
+
       - name: Fast-forward develop to main
         run: |
           set -euo pipefail
-          git fetch origin main develop || git fetch origin main
-          # Create develop locally tracking origin/develop if it exists,
-          # otherwise branch it off the just-tested main commit.
+          git fetch --no-tags origin main
           if git ls-remote --exit-code --heads origin develop >/dev/null 2>&1; then
+            echo "::group::develop exists on origin -- checking out and trying ff merge"
+            git fetch --no-tags origin develop
             git checkout -B develop origin/develop
+            if git merge --ff-only origin/main; then
+              echo "Fast-forward merge succeeded."
+            else
+              echo "Develop has diverged; performing a merge commit."
+              git merge --no-ff origin/main \
+                -m "chore(ci): sync develop with tested main @ ${{ github.sha }}"
+            fi
+            echo "::endgroup::"
           else
+            echo "develop missing on origin -- creating it at the tested main commit"
             git checkout -B develop origin/main
           fi
-          # Try a fast-forward first. If develop has diverged, fall back
-          # to a non-FF merge so the test-passing main tip still lands on
-          # develop. This will fail loudly on real conflicts.
-          if git merge --ff-only origin/main; then
-            echo "Fast-forward merge succeeded."
-          else
-            echo "Develop has diverged; performing a merge commit."
-            git merge --no-ff origin/main \
-              -m "chore(ci): sync develop with tested main @ ${{ github.sha }}"
-          fi
-          git push origin develop
+
+          echo "::group::local state before push"
+          git status
+          git log -3 --oneline develop
+          echo "::endgroup::"
+
+          # Verbose push so the log makes it obvious if a protected
+          # branch / token scope rejected the update.
+          git push --verbose origin develop:develop
