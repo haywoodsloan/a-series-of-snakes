@@ -59,23 +59,25 @@ npm run preview
 ## Layout
 
 ```
-app.vue                        CRT shell, header, settings button
-pages/
-  index.vue                    Game picker
-  [game].vue                   Canvas + HUD + scoreboard
-components/
-  SettingsDialog.vue           Speed, grid size, grid lines toggle
-games/
-  engine.js                    Fixed-step engine, rendering, collisions
-  index.js                     Variant registry
-  classic.js, chase.js, ...    One file per variant; each extends Engine
-utils/
-  colors.js                    Shared palette (canvas + CSS)
-  highscores.js                localStorage leaderboards
-  settings.js                  Reactive settings, also localStorage
-assets/
-  css/crt.scss                 Scanlines, hsync jitter, snow, glow
-  svg/                         Preview tiles for the picker
+app/                           Nuxt v4 srcDir (application code)
+  app.vue                      CRT shell, header, settings button
+  pages/
+    index.vue                  Game picker
+    [game].vue                 Canvas + HUD + scoreboard
+  components/
+    SettingsDialog.vue         Speed, grid size, grid lines toggle
+  games/
+    engine.js                  Fixed-step engine, rendering, collisions
+    index.js                   Variant registry
+    classic.js, chase.js, ...  One file per variant; each extends Engine
+  utils/
+    colors.js                  Shared palette (canvas + CSS)
+    highscores.js              localStorage leaderboards
+    settings.js                Reactive settings, also localStorage
+  assets/
+    css/crt.scss               Scanlines, hsync jitter, snow, glow
+    svg/                       Preview tiles for the picker
+public/                        Static assets served at the site root
 tests/
   unit/                        happy-dom Vitest
   integration/                 Nuxt-runtime Vitest

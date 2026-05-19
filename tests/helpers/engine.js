@@ -8,7 +8,7 @@
 // regression suite under tests/visual/.
 import { afterEach, beforeEach, onTestFinished, vi } from 'vitest';
 
-import Engine from '../../games/engine.js';
+import Engine from '~/games/engine.js';
 
 class FakeContext2D {
   fillRect() {}

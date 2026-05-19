@@ -15,11 +15,7 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov'],
       reportsDirectory: './coverage',
       include: [
-        'games/**/*.js',
-        'utils/**/*.js',
-        'components/**/*.vue',
-        'pages/**/*.vue',
-        'app.vue',
+        'app/**/*.{js,vue}',
       ],
       exclude: [
         'tests/**',
@@ -50,8 +46,8 @@ export default defineConfig({
         },
         resolve: {
           alias: {
-            '~': fileURLToPath(new URL('.', import.meta.url)),
-            '@': fileURLToPath(new URL('.', import.meta.url)),
+            '~': fileURLToPath(new URL('./app', import.meta.url)),
+            '@': fileURLToPath(new URL('./app', import.meta.url)),
           },
         },
       },

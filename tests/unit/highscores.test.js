@@ -9,7 +9,7 @@ import {
   sanitizeName,
   saveScore,
   topScore,
-} from '../../utils/highscores.js';
+} from '~/utils/highscores.js';
 import { highScoreKey } from '../helpers/storage.js';
 
 const KEY = 'test-game:g30:s1';

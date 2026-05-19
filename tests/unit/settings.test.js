@@ -5,7 +5,7 @@ import {
   SPEED_OPTIONS,
   onSettingsChange,
   settings,
-} from '../../utils/settings.js';
+} from '~/utils/settings.js';
 import { STORAGE_KEY_SETTINGS } from '../helpers/storage.js';
 
 beforeEach(() => window.localStorage.clear());
@@ -71,7 +71,7 @@ describe('settings', () => {
     // module cache, and re-import.
     const reload = async () => {
       vi.resetModules();
-      return import('../../utils/settings.js');
+      return import('~/utils/settings.js');
     };
 
     const assertDefaults = (fresh) => {

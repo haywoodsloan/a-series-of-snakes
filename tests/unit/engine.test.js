@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import Engine from '../../games/engine.js';
-import { settings } from '../../utils/settings.js';
+import Engine from '~/games/engine.js';
+import { settings } from '~/utils/settings.js';
 import {
   captureRAF,
   createEngine,

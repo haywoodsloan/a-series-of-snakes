@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import games from '../../games/index.js';
+import games from '~/games/index.js';
 
 // Central registry consumed by the home page (preview tiles) and the
 // dynamic [game].vue route. A typo here would surface as a runtime

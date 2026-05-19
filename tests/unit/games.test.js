@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import Chase from '../../games/chase.js';
-import Classic from '../../games/classic.js';
-import Duo from '../../games/duo.js';
-import Endless from '../../games/endless.js';
-import Inverted from '../../games/inverted.js';
-import Mirror from '../../games/mirror.js';
-import Spikes from '../../games/spikes.js';
-import Tunnels from '../../games/tunnels.js';
+import Chase from '~/games/chase.js';
+import Classic from '~/games/classic.js';
+import Duo from '~/games/duo.js';
+import Endless from '~/games/endless.js';
+import Inverted from '~/games/inverted.js';
+import Mirror from '~/games/mirror.js';
+import Spikes from '~/games/spikes.js';
+import Tunnels from '~/games/tunnels.js';
 import {
   createEngine,
   dispatchKey,

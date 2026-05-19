@@ -4,8 +4,8 @@ import { flushPromises } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 import { nextTick } from 'vue';
 
-import SettingsDialog from '../../components/SettingsDialog.vue';
-import { settings } from '../../utils/settings.js';
+import SettingsDialog from '~/components/SettingsDialog.vue';
+import { settings } from '~/utils/settings.js';
 
 /**
  * Shorthand for `mountSuspended(SettingsDialog, ...)` with the open

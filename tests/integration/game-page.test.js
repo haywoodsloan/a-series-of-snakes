@@ -3,7 +3,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { flushPromises } from '@vue/test-utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import GamePage from '../../pages/[game].vue';
+import GamePage from '~/pages/[game].vue';
 import { captureRAF, setupEngineTest } from '../helpers/engine.js';
 import { highScoreKey } from '../helpers/storage.js';
 
