@@ -14,7 +14,15 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [['github'], ['list']] : 'list',
+  // In CI, emit GitHub annotations (inline PR diff highlights), a
+  // concise stdout list, and an HTML report. The HTML report lives in
+  // `playwright-report/` and is uploaded as a build artifact on failure
+  // (see .github/workflows/test.yml) for offline diff inspection.
+  // `open: 'never'` keeps Playwright from trying to spawn a browser in
+  // the headless CI runner after the suite finishes.
+  reporter: process.env.CI
+    ? [['github'], ['list'], ['html', { open: 'never' }]]
+    : 'list',
   timeout: 30_000,
   // Visual baselines are platform-agnostic: one PNG per assertion, shared
   // across every OS / project. The default template ("name-project-os.png")
@@ -25,13 +33,12 @@ export default defineConfig({
   expect: {
     timeout: 5_000,
     toHaveScreenshot: {
-      // Slightly looser pixel match so font-hinting + subpixel AA
-      // differences between OSes don't false-positive on the shared
-      // cross-OS baseline. Most UI is rendered in PublicPixel which is
-      // pixel-aligned and stable; this slack only matters for non-pixel-
-      // sized text and box-shadow halos.
-      maxDiffPixelRatio: 0.02,
-      threshold: 0.2,
+      // Just enough slack to absorb font-hinting + subpixel AA
+      // differences between OSes on the shared cross-OS baseline,
+      // without letting real color regressions through. A ~1% shift in
+      // any single channel on >0.5% of pixels trips the gate.
+      maxDiffPixelRatio: 0.005,
+      threshold: 0.08,
       animations: 'disabled',
       caret: 'hide',
     },
