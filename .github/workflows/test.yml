@@ -47,9 +47,9 @@ jobs:
         run: npm run test:e2e
         env:
           CI: '1'
-          # Each suite writes a portable `blob` report to its own
-          # subdirectory; the merge step below combines them into a
-          # single HTML report.
+          # Each suite writes its blob report to its own subdirectory
+          # so a later run doesn't clobber an earlier one (the blob
+          # reporter wipes its output dir on startup).
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report/e2e
 
       - name: Visual regression tests
@@ -59,11 +59,19 @@ jobs:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report/visual
 
       - name: Merge Playwright reports
-        # Always runs, even after a test step failed, so the artifact
-        # always contains a viewable report. `--reporter=html` writes
-        # the merged output to `playwright-report/`.
+        # `merge-reports` reads `*.zip` blobs from the immediate
+        # children of the given directory (it does not recurse), so
+        # collect each suite's blob into a flat staging dir first.
+        # Runs `if: always()` so a viewable report is produced even
+        # when a test step failed.
         if: always()
-        run: npx playwright merge-reports --reporter=html ./blob-report
+        run: |
+          mkdir -p all-blobs
+          find blob-report -name '*.zip' -exec cp {} all-blobs/ \;
+          ls -la all-blobs
+          npx playwright merge-reports --reporter=html ./all-blobs
+          echo "=== playwright-report ==="
+          ls -la playwright-report
 
       - name: Upload merged Playwright report
         if: always()
@@ -71,9 +79,10 @@ jobs:
         with:
           name: playwright-report
           path: |
-            playwright-report/
-            test-results/
+            playwright-report
+            test-results
           retention-days: 7
+          if-no-files-found: warn
 
   publish:
     needs: test
