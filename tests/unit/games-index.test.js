@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import games from '../../games/index.js';
 
 // Central registry consumed by the home page (preview tiles) and the
@@ -33,15 +34,18 @@ describe('games registry', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it.each(EXPECTED_NAMES)('load() for %s resolves to an Engine subclass', async (name) => {
-    const entry = games.find((g) => g.name === name);
-    const { default: GameClass } = await entry.load();
+  it.each(EXPECTED_NAMES)(
+    'load() for %s resolves to an Engine subclass',
+    async (name) => {
+      const entry = games.find((g) => g.name === name);
+      const { default: GameClass } = await entry.load();
 
-    // Walk the prototype chain via duck-typing -- every game subclass
-    // inherits these methods from Engine.
-    expect(typeof GameClass).toBe('function');
-    expect(typeof GameClass.prototype.stepAll).toBe('function');
-    expect(typeof GameClass.prototype.addSnake).toBe('function');
-    expect(typeof GameClass.prototype.randomEmptyCell).toBe('function');
-  });
+      // Walk the prototype chain via duck-typing -- every game subclass
+      // inherits these methods from Engine.
+      expect(typeof GameClass).toBe('function');
+      expect(typeof GameClass.prototype.stepAll).toBe('function');
+      expect(typeof GameClass.prototype.addSnake).toBe('function');
+      expect(typeof GameClass.prototype.randomEmptyCell).toBe('function');
+    }
+  );
 });

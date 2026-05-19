@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
 import Chase from '../../games/chase.js';
 import Classic from '../../games/classic.js';
 import Duo from '../../games/duo.js';
@@ -10,19 +11,10 @@ import Tunnels from '../../games/tunnels.js';
 import {
   createEngine,
   dispatchKey,
-  installCanvasStubs,
+  setupEngineTest,
 } from '../helpers/engine.js';
 
-beforeEach(() => {
-  installCanvasStubs();
-  window.localStorage.clear();
-});
-
-// `vi.spyOn` installs property descriptors that persist after the test;
-// restore them so spies don't leak across tests or files.
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+setupEngineTest();
 
 describe('Classic', () => {
   it('spawns one snake + one pellet and idles until input', () => {
@@ -186,7 +178,7 @@ describe('Chase', () => {
     expect(game.food[0]).toMatchObject({ x: 5, y: 4 });
   });
 
-  it('schedules + clears its food timer across start/stop', () => {
+  it('_scheduleFoodTimer + _clearFoodTimer toggle the interval id', () => {
     vi.useFakeTimers();
     try {
       const game = createEngine(Chase);

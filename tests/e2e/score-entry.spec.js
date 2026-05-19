@@ -20,8 +20,12 @@ test('crash in Endless prompts for initials, persists the score, and PLAY AGAIN 
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings' }).click();
   const dialog = page.getByRole('dialog', { name: /SETTINGS/i });
-  await clickUntilDisabled(dialog.getByRole('button', { name: /Increase speed/i }));
-  await clickUntilDisabled(dialog.getByRole('button', { name: /Decrease grid size/i }));
+  await clickUntilDisabled(
+    dialog.getByRole('button', { name: /Increase speed/i })
+  );
+  await clickUntilDisabled(
+    dialog.getByRole('button', { name: /Decrease grid size/i })
+  );
   await dialog.getByRole('button', { name: /BACK/i }).click();
 
   await page.goto('/endless');
@@ -39,7 +43,7 @@ test('crash in Endless prompts for initials, persists the score, and PLAY AGAIN 
   await expect(input).toBeFocused();
   const submit = page.getByRole('button', { name: 'ENTER' });
   await expect(submit).toBeDisabled();
-  await input.type('abc'); // lowercase -- the page sanitizes to uppercase
+  await input.pressSequentially('abc'); // lowercase -- the page sanitizes to uppercase
   await expect(submit).toBeEnabled();
   await submit.click();
 

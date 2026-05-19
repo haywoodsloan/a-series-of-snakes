@@ -15,8 +15,8 @@
     "test:integration": "vitest run --project integration",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test --project=chromium --project=firefox",
-    "test:visual": "playwright test --project=visual",
-    "test:visual:update": "playwright test --project=visual --update-snapshots"
+    "test:visual": "playwright test --project=visual-chromium --project=visual-firefox",
+    "test:visual:update": "playwright test --project=visual-chromium --project=visual-firefox --update-snapshots"
   },
   "dependencies": {
     "@nuxt/fonts": "^0.14.0",

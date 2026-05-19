@@ -1108,123 +1108,123 @@ export default class Engine {
       const path = new Path2D();
       buckets.set(color, path);
       for (const w of walls) {
-      const x = ox + w.x * cell;
-      const y = oy + w.y * cell;
+        const x = ox + w.x * cell;
+        const y = oy + w.y * cell;
 
-      // Neighbor presence drives both core extension and spike omission.
-      const nUp = hasWall(w.x, w.y - 1);
-      const nDown = hasWall(w.x, w.y + 1);
-      const nLeft = hasWall(w.x - 1, w.y);
-      const nRight = hasWall(w.x + 1, w.y);
+        // Neighbor presence drives both core extension and spike omission.
+        const nUp = hasWall(w.x, w.y - 1);
+        const nDown = hasWall(w.x, w.y + 1);
+        const nLeft = hasWall(w.x - 1, w.y);
+        const nRight = hasWall(w.x + 1, w.y);
 
-      // Core edges: pull a side flush with the cell edge whenever there's
-      // a neighbor in that direction so the two cores' fills meet.
-      const l = nLeft ? x : x + inset;
-      const r = nRight ? x + cell : x + cell - inset;
-      const t = nUp ? y : y + inset;
-      const b = nDown ? y + cell : y + cell - inset;
+        // Core edges: pull a side flush with the cell edge whenever there's
+        // a neighbor in that direction so the two cores' fills meet.
+        const l = nLeft ? x : x + inset;
+        const r = nRight ? x + cell : x + cell - inset;
+        const t = nUp ? y : y + inset;
+        const b = nDown ? y + cell : y + cell - inset;
 
-      // Inner concave corners (two sides merged, diagonal empty) get a
-      // 45-degree chamfer instead of a square step so the wall group
-      // perimeter reads as faceted rather than blocky. The core is built
-      // as a polygon (clockwise from top-left) with each corner either a
-      // single point or two chamfer points.
-      const chTL = nUp && nLeft && !hasWall(w.x - 1, w.y - 1);
-      const chTR = nUp && nRight && !hasWall(w.x + 1, w.y - 1);
-      const chBR = nDown && nRight && !hasWall(w.x + 1, w.y + 1);
-      const chBL = nDown && nLeft && !hasWall(w.x - 1, w.y + 1);
+        // Inner concave corners (two sides merged, diagonal empty) get a
+        // 45-degree chamfer instead of a square step so the wall group
+        // perimeter reads as faceted rather than blocky. The core is built
+        // as a polygon (clockwise from top-left) with each corner either a
+        // single point or two chamfer points.
+        const chTL = nUp && nLeft && !hasWall(w.x - 1, w.y - 1);
+        const chTR = nUp && nRight && !hasWall(w.x + 1, w.y - 1);
+        const chBR = nDown && nRight && !hasWall(w.x + 1, w.y + 1);
+        const chBL = nDown && nLeft && !hasWall(w.x - 1, w.y + 1);
 
-      if (chTL) {
-        path.moveTo(x + inset, y);
-      } else {
-        path.moveTo(l, t);
-      }
-      if (chTR) {
-        path.lineTo(x + cell - inset, y);
-        path.lineTo(x + cell, y + inset);
-      } else {
-        path.lineTo(r, t);
-      }
-      if (chBR) {
-        path.lineTo(x + cell, y + cell - inset);
-        path.lineTo(x + cell - inset, y + cell);
-      } else {
-        path.lineTo(r, b);
-      }
-      if (chBL) {
-        path.lineTo(x + inset, y + cell);
-        path.lineTo(x, y + cell - inset);
-      } else {
-        path.lineTo(l, b);
-      }
-      if (chTL) {
-        path.lineTo(x, y + inset);
-      }
-      path.closePath();
-
-      // Spikes line every *unmerged* edge of the (possibly extended) core,
-      // so a wall group's outer perimeter is fully toothed -- including
-      // the corner sections of cells that share one edge with a neighbor
-      // but expose the perpendicular edges. Triangle count scales with
-      // the edge length so spike size stays consistent across solo and
-      // merged walls.
-      const horiz = r - l;
-      const vert = b - t;
-      const horizCount = Math.max(
-        1,
-        Math.round((spikesPerSide * horiz) / (cell - 2 * inset))
-      );
-      const vertCount = Math.max(
-        1,
-        Math.round((spikesPerSide * vert) / (cell - 2 * inset))
-      );
-      const hStep = horiz / horizCount;
-      const vStep = vert / vertCount;
-
-      if (!nUp) {
-        for (let i = 0; i < horizCount; i++) {
-          const a = l + i * hStep;
-          const b1 = a + hStep;
-          const mid = a + hStep / 2;
-          path.moveTo(a, t);
-          path.lineTo(b1, t);
-          path.lineTo(mid, t - tip);
-          path.closePath();
+        if (chTL) {
+          path.moveTo(x + inset, y);
+        } else {
+          path.moveTo(l, t);
         }
-      }
-      if (!nDown) {
-        for (let i = 0; i < horizCount; i++) {
-          const a = l + i * hStep;
-          const b1 = a + hStep;
-          const mid = a + hStep / 2;
-          path.moveTo(a, b);
-          path.lineTo(b1, b);
-          path.lineTo(mid, b + tip);
-          path.closePath();
+        if (chTR) {
+          path.lineTo(x + cell - inset, y);
+          path.lineTo(x + cell, y + inset);
+        } else {
+          path.lineTo(r, t);
         }
-      }
-      if (!nLeft) {
-        for (let i = 0; i < vertCount; i++) {
-          const a = t + i * vStep;
-          const b1 = a + vStep;
-          const mid = a + vStep / 2;
-          path.moveTo(l, a);
-          path.lineTo(l, b1);
-          path.lineTo(l - tip, mid);
-          path.closePath();
+        if (chBR) {
+          path.lineTo(x + cell, y + cell - inset);
+          path.lineTo(x + cell - inset, y + cell);
+        } else {
+          path.lineTo(r, b);
         }
-      }
-      if (!nRight) {
-        for (let i = 0; i < vertCount; i++) {
-          const a = t + i * vStep;
-          const b1 = a + vStep;
-          const mid = a + vStep / 2;
-          path.moveTo(r, a);
-          path.lineTo(r, b1);
-          path.lineTo(r + tip, mid);
-          path.closePath();
+        if (chBL) {
+          path.lineTo(x + inset, y + cell);
+          path.lineTo(x, y + cell - inset);
+        } else {
+          path.lineTo(l, b);
         }
-      }
+        if (chTL) {
+          path.lineTo(x, y + inset);
+        }
+        path.closePath();
+
+        // Spikes line every *unmerged* edge of the (possibly extended) core,
+        // so a wall group's outer perimeter is fully toothed -- including
+        // the corner sections of cells that share one edge with a neighbor
+        // but expose the perpendicular edges. Triangle count scales with
+        // the edge length so spike size stays consistent across solo and
+        // merged walls.
+        const horiz = r - l;
+        const vert = b - t;
+        const horizCount = Math.max(
+          1,
+          Math.round((spikesPerSide * horiz) / (cell - 2 * inset))
+        );
+        const vertCount = Math.max(
+          1,
+          Math.round((spikesPerSide * vert) / (cell - 2 * inset))
+        );
+        const hStep = horiz / horizCount;
+        const vStep = vert / vertCount;
+
+        if (!nUp) {
+          for (let i = 0; i < horizCount; i++) {
+            const a = l + i * hStep;
+            const b1 = a + hStep;
+            const mid = a + hStep / 2;
+            path.moveTo(a, t);
+            path.lineTo(b1, t);
+            path.lineTo(mid, t - tip);
+            path.closePath();
+          }
+        }
+        if (!nDown) {
+          for (let i = 0; i < horizCount; i++) {
+            const a = l + i * hStep;
+            const b1 = a + hStep;
+            const mid = a + hStep / 2;
+            path.moveTo(a, b);
+            path.lineTo(b1, b);
+            path.lineTo(mid, b + tip);
+            path.closePath();
+          }
+        }
+        if (!nLeft) {
+          for (let i = 0; i < vertCount; i++) {
+            const a = t + i * vStep;
+            const b1 = a + vStep;
+            const mid = a + vStep / 2;
+            path.moveTo(l, a);
+            path.lineTo(l, b1);
+            path.lineTo(l - tip, mid);
+            path.closePath();
+          }
+        }
+        if (!nRight) {
+          for (let i = 0; i < vertCount; i++) {
+            const a = t + i * vStep;
+            const b1 = a + vStep;
+            const mid = a + vStep / 2;
+            path.moveTo(r, a);
+            path.lineTo(r, b1);
+            path.lineTo(r + tip, mid);
+            path.closePath();
+          }
+        }
       }
     }
 

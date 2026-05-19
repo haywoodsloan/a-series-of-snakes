@@ -19,11 +19,15 @@ test('settings persist across a page reload', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(
-    page.getByRole('dialog', SETTINGS_DIALOG).getByRole('button', { name: /SHOWN/ })
+    page
+      .getByRole('dialog', SETTINGS_DIALOG)
+      .getByRole('button', { name: /SHOWN/ })
   ).toBeVisible();
 });
 
-test('Esc closes the dialog and returns focus to the trigger', async ({ page }) => {
+test('Esc closes the dialog and returns focus to the trigger', async ({
+  page,
+}) => {
   await page.goto('/');
   const trigger = page.getByRole('button', { name: 'Settings' });
   await trigger.click();
@@ -44,8 +48,11 @@ test('Tab keeps focus trapped inside the dialog panel', async ({ page }) => {
   // The dialog has ~6 focusable buttons; tabbing through 12 times
   // should loop the focus at least once without escaping the panel.
   const focusInsidePanel = () =>
-    page.evaluate(() =>
-      document.querySelector('.settings-panel')?.contains(document.activeElement) ?? false
+    page.evaluate(
+      () =>
+        document
+          .querySelector('.settings-panel')
+          ?.contains(document.activeElement) ?? false
     );
 
   for (let i = 0; i < 12; i++) {

@@ -3,6 +3,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { flushPromises } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 import { nextTick } from 'vue';
+
 import SettingsDialog from '../../components/SettingsDialog.vue';
 import { settings } from '../../utils/settings.js';
 
@@ -38,7 +39,8 @@ describe('SettingsDialog', () => {
       ['backdrop click', (w) => w.find('.settings-backdrop').trigger('click')],
       [
         'Escape key on backdrop',
-        (w) => w.find('.settings-backdrop').trigger('keydown', { key: 'Escape' }),
+        (w) =>
+          w.find('.settings-backdrop').trigger('keydown', { key: 'Escape' }),
       ],
     ])('emits update:modelValue=false on %s', async (_, act) => {
       const wrapper = await mountDialog();

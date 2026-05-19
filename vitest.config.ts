@@ -1,5 +1,5 @@
-import { fileURLToPath } from 'node:url';
 import { defineVitestProject } from '@nuxt/test-utils/config';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 // Two projects so unit tests run in a fast node/happy-dom environment
@@ -14,7 +14,13 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
       reportsDirectory: './coverage',
-      include: ['games/**/*.js', 'utils/**/*.js', 'components/**/*.vue', 'pages/**/*.vue', 'app.vue'],
+      include: [
+        'games/**/*.js',
+        'utils/**/*.js',
+        'components/**/*.vue',
+        'pages/**/*.vue',
+        'app.vue',
+      ],
       exclude: [
         'tests/**',
         'node_modules/**',

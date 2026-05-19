@@ -1,6 +1,7 @@
 // @vitest-environment nuxt
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { describe, expect, it } from 'vitest';
+
 import games from '../../games/index.js';
 import IndexPage from '../../pages/index.vue';
 

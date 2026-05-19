@@ -1,16 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import Engine from '../../games/engine.js';
+import { settings } from '../../utils/settings.js';
 import {
   captureRAF,
   createEngine,
   dispatchKey,
-  installCanvasStubs,
+  makeCanvasRect,
+  setupEngineTest,
 } from '../helpers/engine.js';
-import { settings } from '../../utils/settings.js';
+
+setupEngineTest();
 
 beforeEach(() => {
-  installCanvasStubs();
-  window.localStorage.clear();
   // Reset the settings singleton so tests that depend on
   // `settings.baseSpeed` (tick rate) or `settings.gridLines` (render)
   // are isolated from earlier files in the same vitest worker that
@@ -18,14 +20,6 @@ beforeEach(() => {
   settings.baseSpeed = 1;
   settings.gridLines = false;
   settings.gridSize = 30;
-});
-
-// `vi.spyOn` installs an accessor on the property descriptor, which
-// blocks plain assignment from later helpers (like `captureRAF` reaching
-// for `globalThis.requestAnimationFrame`). Restore between tests so
-// each one starts from a clean slate.
-afterEach(() => {
-  vi.restoreAllMocks();
 });
 
 describe('Engine: snake stepping', () => {
@@ -304,8 +298,14 @@ describe('Engine: keyboard input', () => {
 
     engine.stop();
     expect(handler).toHaveBeenCalledTimes(2);
-    expect(handler.mock.calls[0][0]).toMatchObject({ kind: 'arrows', dir: 'up' });
-    expect(handler.mock.calls[1][0]).toMatchObject({ kind: 'wasd', dir: 'left' });
+    expect(handler.mock.calls[0][0]).toMatchObject({
+      kind: 'arrows',
+      dir: 'up',
+    });
+    expect(handler.mock.calls[1][0]).toMatchObject({
+      kind: 'wasd',
+      dir: 'left',
+    });
   });
 
   it('ignores key repeats', () => {
@@ -486,9 +486,9 @@ describe('Engine: lifecycle loop', () => {
     const previous = settings.baseSpeed;
     try {
       settings.baseSpeed = previous === 2 ? 1 : 2;
-      // The watcher in settings.js is async; flush one macrotask.
-      await new Promise((r) => setTimeout(r, 10));
-      expect(engine.tickRate).not.toBeCloseTo(before);
+      // The settings watcher is async; poll until the engine's tick
+      // rate actually moved off its initial value.
+      await vi.waitFor(() => expect(engine.tickRate).not.toBeCloseTo(before));
     } finally {
       settings.baseSpeed = previous;
     }
@@ -525,16 +525,7 @@ describe('Engine: resize handling', () => {
     const engine = createEngine();
     const initialW = engine.canvas.width;
 
-    engine.canvas.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      width: 800,
-      height: 600,
-      top: 0,
-      left: 0,
-      right: 800,
-      bottom: 600,
-    });
+    engine.canvas.getBoundingClientRect = () => makeCanvasRect(800, 600);
     expect(engine._syncCanvasSize()).toBe(true);
     expect(engine.canvas.width).not.toBe(initialW);
 

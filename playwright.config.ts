@@ -20,16 +20,15 @@ export default defineConfig({
   // own blob, and the workflow's final step combines them via
   // `playwright merge-reports --reporter=html` into a single HTML
   // report uploaded as the build artifact.
-  reporter: process.env.CI
-    ? [['github'], ['list'], ['blob']]
-    : 'list',
+  reporter: process.env.CI ? [['github'], ['list'], ['blob']] : 'list',
   timeout: 30_000,
-  // Visual baselines are platform-agnostic: one PNG per assertion, shared
-  // across every OS / project. The default template ("name-project-os.png")
-  // would force separate Linux + Windows + macOS baselines, which we
-  // don't want for a web app rendered the same everywhere.
+  // Visual baselines live under tests/visual/screenshots/, subdivided
+  // by browser (`visual-chromium/` and `visual-firefox/`). The browser-
+  // suffixed project name flows in via `{projectName}` so each engine
+  // gets its own pristine PNG -- different rasterizers (Skia vs WebRender)
+  // produce visibly different output even on the same OS.
   snapshotDir: './tests/visual/screenshots',
-  snapshotPathTemplate: '{snapshotDir}/{arg}{ext}',
+  snapshotPathTemplate: '{snapshotDir}/{projectName}/{arg}{ext}',
   expect: {
     timeout: 5_000,
     toHaveScreenshot: {
@@ -69,12 +68,17 @@ export default defineConfig({
       use: { ...devices['Desktop Firefox'], viewport: VIEWPORT },
     },
     {
-      // Visual regression runs only on chromium -- deterministic font
-      // rendering across runs; cross-browser visual diffs add noise
-      // without test value.
-      name: 'visual',
+      // Visual regression runs against both browsers so font-hinting +
+      // rasterizer differences are caught per-engine. Each browser owns
+      // its own subdirectory of baselines (see snapshotPathTemplate).
+      name: 'visual-chromium',
       testDir: './tests/visual',
       use: { ...devices['Desktop Chrome'], viewport: VIEWPORT },
+    },
+    {
+      name: 'visual-firefox',
+      testDir: './tests/visual',
+      use: { ...devices['Desktop Firefox'], viewport: VIEWPORT },
     },
   ],
   webServer: {

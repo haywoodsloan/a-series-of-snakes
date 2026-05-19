@@ -190,23 +190,20 @@ function close() {
 // Move focus into the panel when it opens so Esc-to-close works without
 // the user having to click first. Also save/restore the previously-focused
 // element so closing the dialog returns focus to its trigger.
-watch(
-  open,
-  async (isOpen) => {
-    if (isOpen) {
-      previouslyFocused =
-        typeof document !== 'undefined' ? document.activeElement : null;
-      await nextTick();
-      panelRef.value?.focus();
-    } else if (
-      previouslyFocused &&
-      typeof previouslyFocused.focus === 'function'
-    ) {
-      previouslyFocused.focus();
-      previouslyFocused = null;
-    }
+watch(open, async (isOpen) => {
+  if (isOpen) {
+    previouslyFocused =
+      typeof document !== 'undefined' ? document.activeElement : null;
+    await nextTick();
+    panelRef.value?.focus();
+  } else if (
+    previouslyFocused &&
+    typeof previouslyFocused.focus === 'function'
+  ) {
+    previouslyFocused.focus();
+    previouslyFocused = null;
   }
-);
+});
 </script>
 
 <style lang="scss" scoped>

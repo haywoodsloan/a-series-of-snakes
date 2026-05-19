@@ -1,23 +1,19 @@
 // @vitest-environment nuxt
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { flushPromises } from '@vue/test-utils';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import GamePage from '../../pages/[game].vue';
-import { captureRAF, installCanvasStubs } from '../helpers/engine.js';
+import { captureRAF, setupEngineTest } from '../helpers/engine.js';
 import { highScoreKey } from '../helpers/storage.js';
 
+setupEngineTest();
+
 beforeEach(() => {
-  installCanvasStubs();
-  window.localStorage.clear();
   // The engine's RAF loop is irrelevant to these structural tests.
   // `captureRAF` swaps in a manual driver (which we never tick), so
   // the loop is effectively disabled and restored when the test ends.
   captureRAF();
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  window.localStorage.clear();
 });
 
 /** Construct a game-over event payload with sane defaults. */
@@ -78,7 +74,9 @@ describe('Pages: [game].vue', () => {
     expect(wrapper.find('.name-entry').exists()).toBe(true);
     expect(wrapper.find('#initials-input').exists()).toBe(true);
     expect(
-      wrapper.find('form.name-entry button[type="submit"]').attributes('disabled')
+      wrapper
+        .find('form.name-entry button[type="submit"]')
+        .attributes('disabled')
     ).toBeDefined();
   });
 
@@ -112,7 +110,9 @@ describe('Pages: [game].vue', () => {
   });
 
   it('redirects unknown game routes to / (overlay never appears)', async () => {
-    const wrapper = await mountSuspended(GamePage, { route: '/not-a-real-game' });
+    const wrapper = await mountSuspended(GamePage, {
+      route: '/not-a-real-game',
+    });
     await flushPromises();
     expect(wrapper.find('.overlay').exists()).toBe(false);
   });
