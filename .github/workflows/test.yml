@@ -72,7 +72,7 @@ jobs:
           mkdir -p all-blobs
           find blob-report -name '*.zip' -exec cp {} all-blobs/ \;
           ls -la all-blobs
-          npx playwright merge-reports --reporter=github,html ./all-blobs
+          npx playwright merge-reports --reporter=html ./all-blobs
           echo "=== playwright-report ==="
           ls -la playwright-report
 
