@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import games from '~/games/index.js';
 
 // Central registry consumed by the home page (preview tiles) and the

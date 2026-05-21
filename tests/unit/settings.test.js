@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import {
   GRID_SIZE_OPTIONS,
   SPEED_OPTIONS,
   onSettingsChange,
   settings,
 } from '~/utils/settings.js';
+
 import { STORAGE_KEY_SETTINGS } from '../helpers/storage.js';
 
 beforeEach(() => window.localStorage.clear());

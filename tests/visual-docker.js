@@ -6,7 +6,6 @@
 // Usage:
 //   node tests/visual-docker.js                  # assert against baselines
 //   node tests/visual-docker.js --update-snapshots
-
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -18,7 +17,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // the runner that captures baselines matches the runner that asserts
 // them.
 const { devDependencies } = JSON.parse(
-  readFileSync(resolve(repoRoot, 'package.json'), 'utf8'),
+  readFileSync(resolve(repoRoot, 'package.json'), 'utf8')
 );
 const version = devDependencies['@playwright/test'].replace(/^\D*/, '');
 const image = `mcr.microsoft.com/playwright:v${version}-noble`;
@@ -36,17 +35,22 @@ const { status } = spawnSync(
     'run',
     '--rm',
     '--ipc=host', // recommended for Chromium in containers
-    '-v', `${repoRoot}:/work`,
+    '-v',
+    `${repoRoot}:/work`,
     // Mask the host's node_modules with an anonymous volume so the
     // container's `npm ci` installs Linux binaries inside the volume
     // instead of clobbering the host install (which breaks native
     // modules like sass-embedded on Windows/macOS after a run).
-    '-v', '/work/node_modules',
-    '-w', '/work',
+    '-v',
+    '/work/node_modules',
+    '-w',
+    '/work',
     image,
-    'sh', '-c', `npm ci && ${playwrightArgs}`,
+    'sh',
+    '-c',
+    `npm ci && ${playwrightArgs}`,
   ],
-  { stdio: 'inherit' },
+  { stdio: 'inherit' }
 );
 
 process.exit(status ?? 1);

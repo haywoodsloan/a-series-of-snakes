@@ -7,8 +7,8 @@
 // pixel output. Visual correctness is owned by the Playwright visual
 // regression suite under tests/visual/.
 import { afterEach, beforeEach, onTestFinished, vi } from 'vitest';
-
 import Engine from '~/games/engine.js';
+import { settings } from '~/utils/settings.js';
 
 class FakeContext2D {
   fillRect() {}
@@ -45,16 +45,18 @@ class FakeResizeObserver {
   disconnect() {}
 }
 
-const CANVAS_RECT = Object.freeze({
-  x: 0,
-  y: 0,
-  width: 400,
-  height: 400,
-  top: 0,
-  left: 0,
-  right: 400,
-  bottom: 400,
-});
+/** Build a `getBoundingClientRect`-shaped object for the given size. */
+export const makeCanvasRect = (width = 400, height = 400) =>
+  Object.freeze({
+    x: 0,
+    y: 0,
+    width,
+    height,
+    top: 0,
+    left: 0,
+    right: width,
+    bottom: height,
+  });
 
 /**
  * Install Canvas 2D + Path2D + ResizeObserver stubs and a fixed
@@ -75,7 +77,7 @@ export function installCanvasStubs() {
   };
   const protoStubs = {
     getContext: vi.fn(() => new FakeContext2D()),
-    getBoundingClientRect: vi.fn(() => CANVAS_RECT),
+    getBoundingClientRect: vi.fn(() => makeCanvasRect()),
   };
 
   const globalOriginals = Object.fromEntries(
@@ -97,29 +99,23 @@ export function installCanvasStubs() {
 /** A detached canvas ready to hand to an Engine. */
 export const makeCanvas = () => document.createElement('canvas');
 
-/** Build a `getBoundingClientRect`-shaped object for the given size. */
-export const makeCanvasRect = (width = 400, height = 400) =>
-  Object.freeze({
-    x: 0,
-    y: 0,
-    width,
-    height,
-    top: 0,
-    left: 0,
-    right: width,
-    bottom: height,
-  });
-
 /**
  * Standard `beforeEach` / `afterEach` block for any unit or integration
- * test that drives an Engine: install canvas stubs, reset
- * localStorage, and restore mocks/spies after every test. Call once at
- * the top of the file.
+ * test that drives an Engine: install canvas stubs, reset the settings
+ * singleton to engine defaults, clear localStorage, and restore
+ * mocks/spies after every test. Call once at the top of the file.
+ *
+ * The settings singleton is reactive and persists across tests in the
+ * same vitest worker; resetting here keeps tick rate + render branches
+ * deterministic regardless of file order.
  */
 export function setupEngineTest() {
   beforeEach(() => {
     installCanvasStubs();
     window.localStorage.clear();
+    settings.baseSpeed = 1;
+    settings.gridLines = false;
+    settings.gridSize = 30;
   });
   // `vi.spyOn` installs accessor descriptors on the targets it patches,
   // which blocks plain assignment (e.g. `globalThis.requestAnimationFrame
@@ -172,6 +168,24 @@ export function captureRAF() {
   return {
     tick: (now = performance.now()) => pending?.(now),
   };
+}
+
+/**
+ * Run `fn` with `vi.useFakeTimers()` active, restoring real timers in
+ * a `finally` block so a failing assertion can't strand fake timers
+ * across tests. Forwards the function's return value.
+ *
+ * @template T
+ * @param {() => T} fn
+ * @returns {T}
+ */
+export function withFakeTimers(fn) {
+  vi.useFakeTimers();
+  try {
+    return fn();
+  } finally {
+    vi.useRealTimers();
+  }
 }
 
 /** Dispatch a `keydown` event with the given `KeyboardEvent.code`. */

@@ -2,8 +2,8 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { flushPromises } from '@vue/test-utils';
 import { beforeEach, describe, expect, it } from 'vitest';
-
 import GamePage from '~/pages/[game].vue';
+
 import { captureRAF, setupEngineTest } from '../helpers/engine.js';
 import { highScoreKey } from '../helpers/storage.js';
 
@@ -115,5 +115,53 @@ describe('Pages: [game].vue', () => {
     });
     await flushPromises();
     expect(wrapper.find('.overlay').exists()).toBe(false);
+  });
+
+  it('submitName persists initials and switches from the form to the scoreboard', async () => {
+    const wrapper = await mountGame('/classic');
+    fireGameOver(wrapper, gameOverDetail({ score: 7, qualifies: true }));
+    await flushPromises();
+
+    const input = wrapper.find('#initials-input');
+    await input.setValue('zzz');
+    await wrapper.find('form.name-entry').trigger('submit');
+    await flushPromises();
+
+    // Form is gone; the scoreboard with the saved entry takes over.
+    expect(wrapper.find('.name-entry').exists()).toBe(false);
+    expect(wrapper.find('.scoreboard').exists()).toBe(true);
+    expect(wrapper.text()).toContain('ZZZ');
+  });
+
+  it('submitName is a no-op when initials are too short', async () => {
+    const wrapper = await mountGame('/classic');
+    fireGameOver(wrapper, gameOverDetail({ score: 3, qualifies: true }));
+    await flushPromises();
+
+    const input = wrapper.find('#initials-input');
+    await input.setValue('a');
+    // Bypass the disabled-submit guard so the function still runs.
+    await wrapper.find('form.name-entry').trigger('submit');
+    await flushPromises();
+
+    // Form stays put -- function returned early on the length check.
+    expect(wrapper.find('.name-entry').exists()).toBe(true);
+  });
+
+  it('PLAY AGAIN restarts the run: overlay clears and a fresh canvas listener is wired', async () => {
+    const wrapper = await mountGame('/classic');
+    fireGameOver(wrapper, gameOverDetail({ score: 0 }));
+    await flushPromises();
+    expect(wrapper.find('.overlay').exists()).toBe(true);
+
+    await wrapper.find('.overlay-btn.restart').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('.overlay').exists()).toBe(false);
+
+    // The new instance's canvas listener should fire and reopen the overlay.
+    fireGameOver(wrapper, gameOverDetail({ score: 0 }));
+    await flushPromises();
+    expect(wrapper.find('.overlay').exists()).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
+import { describe, expect, it, vi } from 'vitest';
 import Engine from '~/games/engine.js';
 import { settings } from '~/utils/settings.js';
+
 import {
   captureRAF,
   createEngine,
@@ -11,16 +11,6 @@ import {
 } from '../helpers/engine.js';
 
 setupEngineTest();
-
-beforeEach(() => {
-  // Reset the settings singleton so tests that depend on
-  // `settings.baseSpeed` (tick rate) or `settings.gridLines` (render)
-  // are isolated from earlier files in the same vitest worker that
-  // mutated the reactive instance.
-  settings.baseSpeed = 1;
-  settings.gridLines = false;
-  settings.gridSize = 30;
-});
 
 describe('Engine: snake stepping', () => {
   it('advances the head by one direction delta per step', () => {

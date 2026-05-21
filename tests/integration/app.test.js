@@ -1,7 +1,6 @@
 // @vitest-environment nuxt
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { describe, expect, it } from 'vitest';
-
 import App from '~/app.vue';
 
 describe('App shell', () => {
