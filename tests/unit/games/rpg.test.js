@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import Rpg from '~/games/rpg.js';
 
 import {
@@ -12,6 +12,31 @@ setupEngineTest();
 /** Dispatch a keyup event so strafe-release behavior is testable. */
 const dispatchKeyUp = (code, init = {}) =>
   window.dispatchEvent(new KeyboardEvent('keyup', { code, ...init }));
+
+/**
+ * Build a combat fixture with sensible defaults. Every combat-related
+ * test reaches in and sets `game._combat` directly (bypassing
+ * `_beginCombat`), so this helper keeps the boilerplate from drifting
+ * across the file and gives every fixture the auxiliary queues the
+ * renderer + resolve path now expect.
+ */
+const makeCombat = (overrides = {}) => ({
+  enemy: { hp: 50, maxHp: 50, attackMin: 4, attackMax: 4 },
+  selected: 'attack',
+  log: [],
+  playerCountering: false,
+  enemyCountering: false,
+  animQueue: [],
+  floaters: [],
+  ...overrides,
+});
+
+// Per-test cleanup: each combat test pins `Math.random` with `vi.spyOn`,
+// and Vitest's auto-restore depends on config. Doing it explicitly here
+// keeps tests order-independent.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('Rpg constructor', () => {
   it('seeds initial state with snake, full HP, and a generated cave', () => {
@@ -183,13 +208,9 @@ describe('Rpg combat', () => {
 
   it('attack deals 1+ damage to the enemy', () => {
     const game = createEngine(Rpg);
-    game._combat = {
+    game._combat = makeCombat({
       enemy: { hp: 20, maxHp: 20, attackMin: 0, attackMax: 0 },
-      selected: 'attack',
-      log: [],
-      playerCountering: false,
-      enemyCountering: false,
-    };
+    });
     // Pin the enemy roll to 0 so its damage doesn't interfere with the
     // attack assertion below.
     vi.spyOn(Math, 'random').mockReturnValue(0);
@@ -205,15 +226,10 @@ describe('Rpg combat', () => {
     // player chose Counter; pick Counter again so the player consumes
     // no random rolls before the enemy turn -- only the enemy-chance,
     // damage, and reflect rolls run, in that order.
-    game._combat = {
-      enemy: { hp: 50, maxHp: 50, attackMin: 4, attackMax: 4 },
+    game._combat = makeCombat({
       selected: 'counter',
-      log: [],
       playerCountering: true,
-      enemyCountering: false,
-      animQueue: [],
-      floaters: [],
-    };
+    });
     // Random()=0 picks attack (< ENEMY_ATTACK_CHANCE), lands min damage
     // on every roll, and passes the < COUNTER_REFLECT_CHANCE check.
     vi.spyOn(Math, 'random').mockReturnValue(0);
@@ -235,15 +251,10 @@ describe('Rpg combat', () => {
   it('counter still lets damage land when the reflect coin flip fails', () => {
     const game = createEngine(Rpg);
     const startHp = game._hp;
-    game._combat = {
-      enemy: { hp: 50, maxHp: 50, attackMin: 4, attackMax: 4 },
+    game._combat = makeCombat({
       selected: 'counter',
-      log: [],
       playerCountering: true,
-      enemyCountering: false,
-      animQueue: [],
-      floaters: [],
-    };
+    });
     // Sequence (counter action consumes no rolls before the enemy
     // turn): enemy-attack-chance (0 -> attack), enemy damage randInt
     // (0 -> min), reflect roll (0.99 -> fails). Damage hits the
@@ -262,15 +273,10 @@ describe('Rpg combat', () => {
   it('player attack bounces back when the enemy primed counter and the reflect roll succeeds', () => {
     const game = createEngine(Rpg);
     const startHp = game._hp;
-    game._combat = {
+    game._combat = makeCombat({
       enemy: { hp: 50, maxHp: 50, attackMin: 0, attackMax: 0 },
-      selected: 'attack',
-      log: [],
-      playerCountering: false,
       enemyCountering: true,
-      animQueue: [],
-      floaters: [],
-    };
+    });
     // Sequence: player damage randInt (0 -> min = 3), reflect roll
     // (0 -> succeeds), then enemy attack chance (0 -> attack) and
     // damage (0 -> min = 0, harmless). The player's own 3 damage
@@ -290,15 +296,10 @@ describe('Rpg combat', () => {
   it('player attack lands normally when the enemy primed counter but the reflect roll fails', () => {
     const game = createEngine(Rpg);
     const startHp = game._hp;
-    game._combat = {
+    game._combat = makeCombat({
       enemy: { hp: 50, maxHp: 50, attackMin: 0, attackMax: 0 },
-      selected: 'attack',
-      log: [],
-      playerCountering: false,
       enemyCountering: true,
-      animQueue: [],
-      floaters: [],
-    };
+    });
     // Sequence: player damage randInt (0 -> 3), reflect roll
     // (0.99 -> fails), enemy attack chance (0 -> attack) and damage
     // (0 -> 0 harmless). Player damage lands on the enemy as usual.
@@ -323,13 +324,7 @@ describe('Rpg combat', () => {
       attackMax: 4,
     };
     game._enemies.push(enemy);
-    game._combat = {
-      enemy,
-      selected: 'run',
-      log: [],
-      playerCountering: false,
-      enemyCountering: false,
-    };
+    game._combat = makeCombat({ enemy, selected: 'run' });
     game._phase = 'combat';
     const startHp = game._hp;
     game._resolveCombatTurn('run');
@@ -348,13 +343,9 @@ describe('Rpg combat', () => {
     vi.useFakeTimers();
     try {
       const game = createEngine(Rpg);
-      game._combat = {
+      game._combat = makeCombat({
         enemy: { hp: 50, maxHp: 50, attackMin: 50, attackMax: 50 },
-        selected: 'attack',
-        log: [],
-        playerCountering: false,
-        enemyCountering: false,
-      };
+      });
       game._phase = 'combat';
       let fired = false;
       game.canvas.addEventListener('gameover', () => {
@@ -374,19 +365,6 @@ describe('Rpg combat', () => {
 });
 
 describe('Rpg enemy AI', () => {
-  // Helper: stand up a combat fixture with sensible defaults so each
-  // AI test only has to override the field(s) it cares about.
-  const makeCombat = (overrides = {}) => ({
-    enemy: { hp: 50, maxHp: 50, attackMin: 4, attackMax: 4 },
-    selected: 'attack',
-    log: [],
-    playerCountering: false,
-    enemyCountering: false,
-    animQueue: [],
-    floaters: [],
-    ...overrides,
-  });
-
   it('braces instead of attacking when the player has Counter primed and the AI rolls above the lowered threshold', () => {
     const game = createEngine(Rpg);
     game._combat = makeCombat({ playerCountering: true });
@@ -446,6 +424,57 @@ describe('Rpg enemy AI', () => {
     // finisher is skipped, then the vs-counter branch picks counter.
     vi.spyOn(Math, 'random').mockReturnValue(0.99);
     expect(game._chooseEnemyAction(game._combat)).toBe('counter');
+  });
+
+  it('consumes exactly one Math.random() roll per call so callers can stack mocks predictably', () => {
+    // The resolve path relies on a fixed per-action roll budget --
+    // _chooseEnemyAction is wedged between the player-attack-reflect
+    // roll and the enemy damage roll, so any extra rolls here would
+    // silently desync every mockReturnValueOnce sequence in the suite.
+    const game = createEngine(Rpg);
+    game._combat = makeCombat();
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    game._chooseEnemyAction(game._combat);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Rpg pending-damage visual mask', () => {
+  it('defers the visible enemy-damage drop until the enemy lunge starts', () => {
+    const game = createEngine(Rpg);
+    const startHp = game._hp;
+    game._combat = makeCombat();
+    game._phase = 'combat';
+    // Pin all rolls to 0: enemy picks attack, swings for min damage.
+    // The player picked attack first, so the queue is
+    //   [playerAttack, pause, enemyAttack] -- the enemy lunge is
+    //   third, so its damage must stay masked behind
+    //   pendingPlayerDamage until that anim starts.
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    game._resolveCombatTurn('attack');
+    // HP has already dropped synchronously...
+    expect(game._hp).toBeLessThan(startHp);
+    // ...but the renderer should see displayed = hp + pending == startHp
+    // until the enemy lunge's onStart fires.
+    expect(game._combat.pendingPlayerDamage).toBeGreaterThan(0);
+    expect(game._hp + game._combat.pendingPlayerDamage).toBe(startHp);
+  });
+
+  it('reflected player-attack damage routes to the player (not the enemy) and is masked the same way', () => {
+    const game = createEngine(Rpg);
+    const startHp = game._hp;
+    game._combat = makeCombat({
+      enemy: { hp: 50, maxHp: 50, attackMin: 0, attackMax: 0 },
+      enemyCountering: true,
+    });
+    game._phase = 'combat';
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    game._resolveCombatTurn('attack');
+    expect(game._combat.enemy.hp).toBe(50);
+    expect(game._hp).toBeLessThan(startHp);
+    // Reflected player attacks defer their floater to onStart, so
+    // pendingPlayerDamage masks the bar until the player lunge begins.
+    expect(game._combat.pendingPlayerDamage).toBeGreaterThan(0);
   });
 });
 
@@ -638,14 +667,9 @@ describe('Rpg food spawn buffer', () => {
 describe('Rpg combat animation', () => {
   it('queues an attack animation when the player strikes', () => {
     const game = createEngine(Rpg);
-    game._combat = {
+    game._combat = makeCombat({
       enemy: { hp: 20, maxHp: 20, attackMin: 0, attackMax: 0 },
-      selected: 'attack',
-      log: [],
-      playerCountering: false,
-      enemyCountering: false,
-      animQueue: [],
-    };
+    });
     game._phase = 'combat';
     vi.spyOn(Math, 'random').mockReturnValue(0);
     game._resolveCombatTurn('attack');
@@ -658,14 +682,9 @@ describe('Rpg combat animation', () => {
 
   it('spawns a floating damage number on the enemy when the player strikes', () => {
     const game = createEngine(Rpg);
-    game._combat = {
+    game._combat = makeCombat({
       enemy: { hp: 20, maxHp: 20, attackMin: 0, attackMax: 0 },
-      selected: 'attack',
-      playerCountering: false,
-      enemyCountering: false,
-      animQueue: [],
-      floaters: [],
-    };
+    });
     game._phase = 'combat';
     vi.spyOn(Math, 'random').mockReturnValue(0);
     game._resolveCombatTurn('attack');
@@ -677,16 +696,12 @@ describe('Rpg combat animation', () => {
 
   it('locks input while the animation queue is non-empty', () => {
     const game = createEngine(Rpg);
-    game._combat = {
+    game._combat = makeCombat({
       enemy: { hp: 20, maxHp: 20, attackMin: 0, attackMax: 0 },
-      selected: 'attack',
-      log: [],
-      playerCountering: false,
-      enemyCountering: false,
       animQueue: [
         { actor: 'player', kind: 'attack', durationMs: 1000, startMs: 1 },
       ],
-    };
+    });
     game._phase = 'combat';
     // While the queue is full, _handleCombatKey should ignore navigation
     // entirely -- the cursor must not move and no turn may resolve.
@@ -726,13 +741,10 @@ describe('Rpg render does not throw', () => {
   it('renders the combat phase', () => {
     const game = createEngine(Rpg);
     game._phase = 'combat';
-    game._combat = {
+    game._combat = makeCombat({
       enemy: { hp: 5, maxHp: 8, attackMin: 2, attackMax: 4 },
-      selected: 'attack',
       log: ['ENCOUNTERED AN ENEMY', 'YOU STRIKE FOR 3'],
-      playerCountering: false,
-      enemyCountering: false,
-    };
+    });
     expect(() => game.render()).not.toThrow();
   });
 });

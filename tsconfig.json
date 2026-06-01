@@ -1,4 +1,18 @@
 {
   // https://nuxt.com/docs/guide/concepts/typescript
-  "extends": "./.nuxt/tsconfig.json"
+  //
+  // Nuxt 4 splits typecheck into per-environment projects (app code,
+  // server code, shared code, and the Node config layer that owns
+  // nuxt.config.ts + modules). The root project references all of
+  // them so VS Code routes each file to the project whose include
+  // list claims it -- in particular, nuxt.config.ts gets the node
+  // project, which is the only one that ships the nitro/nitropack
+  // types behind the top-level `nitro` config key.
+  "files": [],
+  "references": [
+    { "path": "./.nuxt/tsconfig.app.json" },
+    { "path": "./.nuxt/tsconfig.server.json" },
+    { "path": "./.nuxt/tsconfig.shared.json" },
+    { "path": "./.nuxt/tsconfig.node.json" }
+  ]
 }

@@ -2,7 +2,6 @@ import {
   ENEMY as ENEMY_COLOR,
   FG,
   FOOD,
-  HIGH as HIGH_COLOR,
   PLAYFIELD_BG,
   SCORE as SCORE_COLOR,
   SNAKE_ALT,
@@ -837,9 +836,7 @@ export default class Rpg extends Engine {
   _resolveCombatTurn(action) {
     const c = this._combat;
     if (!c) return;
-    // Defensive init -- ad-hoc test fixtures may not include the queues.
-    if (!c.animQueue) c.animQueue = [];
-    if (!c.floaters) c.floaters = [];
+    this._normalizeCombat(c);
     // Each turn a primed counter applies only to the immediately-
     // following attack from the other actor. Reset before resolving so
     // a non-counter action consumes nothing.
@@ -852,37 +849,26 @@ export default class Rpg extends Engine {
 
     if (action === 'attack') {
       const damage = randInt(PLAYER_ATTACK_MIN, PLAYER_ATTACK_MAX);
-      // Mirror of the enemy-attack reflect path: when the enemy primed
-      // Counter on the previous turn the player's swing has a coin-flip
-      // chance of bouncing back. Same `reflected` flag drives the
-      // overlay so it flashes the lunger (the player) instead of the
-      // defender, and `pendingPlayerDamage` masks the HP drop until the
-      // animation begins.
+      // When the enemy primed Counter the previous turn, the player's
+      // swing has a coin-flip chance of bouncing back. Symmetric with
+      // the enemy-vs-player counter path below.
       const reflected =
         enemyWasCountering && Math.random() < COUNTER_REFLECT_CHANCE;
       if (reflected) {
         this._hp = Math.max(0, this._hp - damage);
-        c.pendingPlayerDamage = damage;
-        c.animQueue.push({
-          actor: 'player',
-          kind: 'attack',
-          damage,
+        // Player anim is first in the queue, so onStart fires almost
+        // immediately -- still defer the floater so the HP bar drop
+        // is visually tied to the lunge contact rather than the
+        // synchronous resolve.
+        this._queueAttackAnim(c, 'player', damage, {
           reflected: true,
-          durationMs: ATTACK_ANIM_MS,
-          onStart: () => {
-            this._pushFloater('player', `-${damage}`);
-            c.pendingPlayerDamage = 0;
-          },
+          defer: true,
         });
       } else {
         c.enemy.hp = Math.max(0, c.enemy.hp - damage);
-        c.animQueue.push({
-          actor: 'player',
-          kind: 'attack',
-          damage,
-          durationMs: ATTACK_ANIM_MS,
-        });
-        this._pushFloater('enemy', `-${damage}`);
+        // No defer: player anim plays first, so the floater + HP drop
+        // appearing immediately reads as "hit on impact".
+        this._queueAttackAnim(c, 'player', damage);
         if (c.enemy.hp <= 0) combatEnded = true;
       }
     } else if (action === 'counter') {
@@ -902,9 +888,9 @@ export default class Rpg extends Engine {
     // Enemy turn only fires when combat is still live and the player
     // didn't already kill themselves on the run cost.
     if (!combatEnded && c.enemy.hp > 0 && this._hp > 0) {
-      // Insert a quiet pause between the player's animation and the
-      // enemy's so the player has time to register their own hit
-      // flash + damage floater before the counter-attack lunges in.
+      // Quiet beat between the player's animation and the enemy's so
+      // the player can read their own damage numbers before the
+      // counter-swing lunges in.
       if (action === 'attack' || action === 'counter') {
         c.animQueue.push({
           actor: 'none',
@@ -914,46 +900,22 @@ export default class Rpg extends Engine {
       }
       if (this._chooseEnemyAction(c) === 'attack') {
         const damage = randInt(c.enemy.attackMin, c.enemy.attackMax);
-        // Counter reflect roll: when the player primed Counter on the
-        // previous turn the enemy's incoming attack has a coin-flip
-        // chance of bouncing back at the enemy instead of landing on
-        // the player. Resolved synchronously so the HP bars stay in
-        // sync with the animation queue, but the visible damage drop
-        // is deferred to the enemy lunge's `onStart` either way.
+        // When the player primed Counter the previous turn, the
+        // enemy's swing has a coin-flip chance of bouncing back.
         const reflected =
           playerWasCountering && Math.random() < COUNTER_REFLECT_CHANCE;
         if (reflected) {
           c.enemy.hp = Math.max(0, c.enemy.hp - damage);
-          c.pendingEnemyDamage = damage;
-          c.animQueue.push({
-            actor: 'enemy',
-            kind: 'attack',
-            damage,
+          this._queueAttackAnim(c, 'enemy', damage, {
             reflected: true,
-            durationMs: ATTACK_ANIM_MS,
-            onStart: () => {
-              this._pushFloater('enemy', `-${damage}`);
-              c.pendingEnemyDamage = 0;
-            },
+            defer: true,
           });
           if (c.enemy.hp <= 0) combatEnded = true;
         } else {
           this._hp = Math.max(0, this._hp - damage);
-          // Visually mask the HP drop until the enemy's lunge actually
-          // starts -- without this the player's bar plunges (and the
-          // damage floater pops up) the instant the player's own turn
-          // resolves, well before the enemy animation plays out.
-          c.pendingPlayerDamage = damage;
-          c.animQueue.push({
-            actor: 'enemy',
-            kind: 'attack',
-            damage,
-            durationMs: ATTACK_ANIM_MS,
-            onStart: () => {
-              this._pushFloater('player', `-${damage}`);
-              c.pendingPlayerDamage = 0;
-            },
-          });
+          // Defer so the HP drop / floater happens when the enemy
+          // lunge contacts, not the instant the player's turn resolves.
+          this._queueAttackAnim(c, 'enemy', damage, { defer: true });
         }
       } else {
         c.enemyCountering = true;
@@ -985,6 +947,64 @@ export default class Rpg extends Engine {
       this._endCombat();
     } else {
       this._dirty = true;
+    }
+  }
+
+  /**
+   * Ensure a combat-state object has the auxiliary collections that the
+   * renderer + resolve path read from. Tests build ad-hoc fixtures
+   * without going through `_beginCombat`, so the queues may be missing;
+   * production combat always starts here with both arrays present.
+   */
+  _normalizeCombat(c) {
+    if (!c.animQueue) c.animQueue = [];
+    if (!c.floaters) c.floaters = [];
+  }
+
+  /**
+   * Queue an attack animation entry on the combat anim queue and wire
+   * up the damage floater + pending-HP visual mask. Centralises the
+   * four near-identical lunge variants (player vs enemy, normal vs
+   * reflected) so the resolve logic above stays focused on the rules
+   * rather than the animation plumbing.
+   *
+   *   attacker  -- 'player' or 'enemy' (the actor running the lunge)
+   *   reflected -- true when the lunge bounces back at the attacker
+   *                (visible as the lunger flashing red on contact)
+   *   defer     -- true when the floater + HP-bar drop should wait
+   *                for the anim to start playing (mandatory when the
+   *                lunge isn't the first anim in the queue; optional
+   *                when it is)
+   */
+  _queueAttackAnim(c, attacker, damage, { reflected = false, defer = false } = {}) {
+    const target = reflected
+      ? attacker
+      : attacker === 'player'
+        ? 'enemy'
+        : 'player';
+    const pendingKey =
+      target === 'player' ? 'pendingPlayerDamage' : 'pendingEnemyDamage';
+    const anim = {
+      actor: attacker,
+      kind: 'attack',
+      damage,
+      durationMs: ATTACK_ANIM_MS,
+    };
+    if (reflected) anim.reflected = true;
+    if (defer) {
+      // Accumulate rather than assign so a second deferred lunge
+      // landing on the same target doesn't stomp the first one's
+      // mask (e.g. player reflects, then enemy swings: both defer
+      // damage to the player's HP bar).
+      c[pendingKey] = (c[pendingKey] || 0) + damage;
+      anim.onStart = () => {
+        this._pushFloater(target, `-${damage}`);
+        c[pendingKey] = Math.max(0, (c[pendingKey] || 0) - damage);
+      };
+      c.animQueue.push(anim);
+    } else {
+      c.animQueue.push(anim);
+      this._pushFloater(target, `-${damage}`);
     }
   }
 
@@ -1198,9 +1218,7 @@ export default class Rpg extends Engine {
 
     const c = this._combat;
     if (!c) return;
-    // Defensive init -- ad-hoc test fixtures may not include the queues.
-    if (!c.animQueue) c.animQueue = [];
-    if (!c.floaters) c.floaters = [];
+    this._normalizeCombat(c);
 
     // Resolve the current animation (if any) before laying out sprites
     // so their positions and overlays can react to the in-flight turn.
@@ -1278,7 +1296,8 @@ export default class Rpg extends Engine {
       displayedPlayerHp,
       this._maxHp,
       FG,
-      'PLAYER'
+      'PLAYER',
+      layout
     );
     this._drawCombatHpBar(
       geom.enemyCenterX - barW / 2,
@@ -1287,10 +1306,11 @@ export default class Rpg extends Engine {
       displayedEnemyHp,
       c.enemy.maxHp,
       ENEMY_COLOR,
-      'ENEMY'
+      'ENEMY',
+      layout
     );
 
-    this._drawCombatFloaters(now, geom);
+    this._drawCombatFloaters(now, geom, layout);
     this._drawCombatMenu(layout);
   }
 
@@ -1351,7 +1371,11 @@ export default class Rpg extends Engine {
       }
       const elapsed = now - head.startMs;
       if (elapsed < head.durationMs) {
-        return { ...head, progress: elapsed / head.durationMs };
+        // Mutate the queue entry instead of spreading into a new
+        // object every frame -- the renderer treats this view as
+        // read-only and the entry is discarded when it expires.
+        head.progress = elapsed / head.durationMs;
+        return head;
       }
       if (head.onComplete) head.onComplete();
       c.animQueue.shift();
@@ -1481,8 +1505,8 @@ export default class Rpg extends Engine {
 
   _drawSprite(x, y, size, color, kind) {
     const { ctx } = this;
-    // 12x12 multi-color sprite grids. Each cell value picks a color
-    // from the kind-specific palette:
+    // 16x16 multi-color sprite grids. Each cell value picks a color
+    // from the shared palette:
     //   0 = empty   1 = body (caller-supplied accent)
     //   2 = bright accent (eyes/glow)
     //   3 = dark accent (pupil/recess)
@@ -1490,31 +1514,35 @@ export default class Rpg extends Engine {
     // Drawn as one Path2D per color so we still get a single fill per
     // layer instead of N draw calls.
     const grid = kind === 'enemy' ? ENEMY_SPRITE : PLAYER_SPRITE;
-    const palette =
-      kind === 'enemy'
-        ? { 1: color, 2: SCORE_COLOR, 3: PLAYFIELD_BG, 4: FOOD }
-        : { 1: color, 2: SCORE_COLOR, 3: PLAYFIELD_BG, 4: FOOD };
     const cs = size / SPRITE_RES;
     const paths = {};
     for (let r = 0; r < SPRITE_RES; r++) {
+      const row = grid[r];
       for (let cc = 0; cc < SPRITE_RES; cc++) {
-        const v = grid[r][cc];
+        const v = row[cc];
         if (!v) continue;
         if (!paths[v]) paths[v] = new Path2D();
         paths[v].rect(x + cc * cs, y + r * cs, cs, cs);
       }
     }
     // Layer order: body first, then accents on top so eyes/teeth read.
+    const paletteColors = {
+      1: color,
+      2: SCORE_COLOR,
+      3: PLAYFIELD_BG,
+      4: FOOD,
+    };
     for (const v of [1, 4, 2, 3]) {
       if (!paths[v]) continue;
-      ctx.fillStyle = palette[v];
+      ctx.fillStyle = paletteColors[v];
       ctx.fill(paths[v]);
     }
   }
 
-  _drawCombatHpBar(x, y, w, hp, maxHp, color, label) {
+  _drawCombatHpBar(x, y, w, hp, maxHp, color, label, layout) {
     const { ctx } = this;
-    const barH = Math.max(14, Math.round(this._gridLayout().cell * 0.7));
+    const cell = (layout ?? this._gridLayout()).cell;
+    const barH = Math.max(14, Math.round(cell * 0.7));
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(x - 2, y - 2, w + 4, barH + 4);
     const ratio = Math.max(0, Math.min(1, hp / maxHp));
@@ -1553,11 +1581,11 @@ export default class Rpg extends Engine {
     });
   }
 
-  _drawCombatFloaters(now, geom) {
+  _drawCombatFloaters(now, geom, layout) {
     const c = this._combat;
     if (!c || !c.floaters || !c.floaters.length) return;
     const { ctx } = this;
-    const cell = this._gridLayout().cell;
+    const cell = (layout ?? this._gridLayout()).cell;
     const fontPx = Math.max(20, Math.round(cell * 1.4));
     ctx.font = `${fontPx}px PublicPixel, monospace`;
     ctx.textAlign = 'center';
@@ -1603,7 +1631,6 @@ export default class Rpg extends Engine {
   _drawCombatMenu(layout) {
     const { ctx } = this;
     const { ox, oy, cell } = layout;
-    const w = cell * this.cols;
     const h = cell * this.rows;
     const c = this._combat;
     if (!c) return;
