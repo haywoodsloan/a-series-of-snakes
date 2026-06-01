@@ -34,3 +34,8 @@ export const TUNNEL_HUD = '#d96bff';
 // Wall/spike obstacle color. Light grey so spikes read as inert hazards
 // rather than another snake.
 export const WALL = '#bfbfbf';
+
+// Enemy fill in the RPG mode. Magenta so it stays visually separate from
+// every snake color (FG green, SNAKE_ALT cyan) and from the food red, no
+// matter which mode's palette is on screen.
+export const ENEMY = '#ff6bff';

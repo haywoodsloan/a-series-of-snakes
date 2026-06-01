@@ -17,8 +17,11 @@ class FakeContext2D {
   strokeRect() {}
   stroke() {}
   fill() {}
+  clip() {}
   save() {}
   restore() {}
+  beginPath() {}
+  arc() {}
   // Setter-only properties on the real CanvasRenderingContext2D --
   // declared explicitly so test code can spy on `ctx.fillStyle = ...`
   // assignments without throwing.

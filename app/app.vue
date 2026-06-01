@@ -34,7 +34,7 @@
 </template>
 
 <script setup>
-import { FG, FOOD, SNAKE_ALT, WALL } from '~/utils/colors.js';
+import { ENEMY, FG, FOOD, SNAKE_ALT, WALL } from '~/utils/colors.js';
 
 const route = useRoute();
 const showBack = computed(() => route.path !== '/');
@@ -147,6 +147,11 @@ svg {
     // Walls render fill-only on the canvas (no border/glow), so the
     // preview class skips stroke and drop-shadow to match.
     fill: v-bind(WALL);
+  }
+  .enemy {
+    fill: v-bind(ENEMY);
+    stroke: v-bind(ENEMY);
+    filter: drop-shadow(0 0 0.2rem v-bind(ENEMY));
   }
 }
 </style>

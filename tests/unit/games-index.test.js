@@ -14,6 +14,7 @@ const EXPECTED_NAMES = [
   'mirror',
   'duo',
   'inverted',
+  'rpg',
 ];
 
 describe('games registry', () => {

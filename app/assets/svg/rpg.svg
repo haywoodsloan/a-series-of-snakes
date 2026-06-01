@@ -1,0 +1,86 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  preserveAspectRatio="xMidYMid meet"
+  shape-rendering="crispEdges"
+  width="100%"
+  height="100%"
+  style="overflow: visible"
+>
+  <!-- Cave roof + floor. The visible playfield uses the same 10x10
+       grid of 9.6 cells (offset by 2) as every other preview. A solid
+       wall band on each side runs past the bezel (overflow:visible on
+       the SVG plus the .preview's overflow:hidden clips it to the
+       rounded TV frame). Below each band a per-column rect carries
+       the cave's per-column thickness, drifting by at most 1 between
+       adjacent columns and bottoming out at 1 cell, the same
+       constraints as the in-game cave generator. -->
+  <g class="wall">
+    <!-- Solid roof band: spans the full width past the bezel and the
+         full vertical height from above the bezel down to the top of
+         the per-column depth row. With overflow:visible the portion
+         above y=0 hides behind the bezel. -->
+    <rect x="-50" y="-50" width="200" height="56.75" />
+    <!-- Per-column roof depths (cells extending below the solid band):
+         col:  -2 -1  0  1  2  3  4  5  6  7  8  9 10 11
+         d:     1  2  2  1  2  2  1  1  2  1  1  1  2  1
+         All adjacent pairs differ by at most 1, matching the in-game
+         drift cap. Cols 4 and 8 stay at depth 1 so the snake head
+         (col 4 row 3) and enemy (col 8 row 3) stay visually clear. -->
+    <rect x="-17.25" y="6.75" width="9.7" height="9.7"  />
+    <rect x="-7.65"  y="6.75" width="9.7" height="19.3" />
+    <rect x="1.95"   y="6.75" width="9.7" height="19.3" />
+    <rect x="11.55"  y="6.75" width="9.7" height="9.7"  />
+    <rect x="21.15"  y="6.75" width="9.7" height="19.3" />
+    <rect x="30.75"  y="6.75" width="9.7" height="19.3" />
+    <rect x="40.35"  y="6.75" width="9.7" height="9.7"  />
+    <rect x="49.95"  y="6.75" width="9.7" height="9.7"  />
+    <rect x="59.55"  y="6.75" width="9.7" height="19.3" />
+    <rect x="69.15"  y="6.75" width="9.7" height="9.7"  />
+    <rect x="78.75"  y="6.75" width="9.7" height="9.7"  />
+    <rect x="88.35"  y="6.75" width="9.7" height="9.7"  />
+    <rect x="97.95"  y="6.75" width="9.7" height="19.3" />
+    <rect x="107.55" y="6.75" width="9.7" height="9.7"  />
+
+    <!-- Solid floor band: mirror of the roof. Spans the full width
+         past the bezel from below the crenellation row down past the
+         bottom bezel. -->
+    <rect x="-50" y="93.25" width="200" height="56.75" />
+    <!-- Per-column floor depths (cells extending above the solid band):
+         col:  -2 -1  0  1  2  3  4  5  6  7  8  9 10 11
+         d:     2  1  1  2  2  2  1  2  1  2  1  2  1  1
+         Adjacent pairs differ by at most 1. Cols 6 (food row 6) and 4
+         (snake head) stay at depth 1 so they aren't crushed. -->
+    <rect x="-17.25" y="73.95" width="9.7" height="19.3" />
+    <rect x="-7.65"  y="83.55" width="9.7" height="9.7"  />
+    <rect x="1.95"   y="83.55" width="9.7" height="9.7"  />
+    <rect x="11.55"  y="73.95" width="9.7" height="19.3" />
+    <rect x="21.15"  y="73.95" width="9.7" height="19.3" />
+    <rect x="30.75"  y="73.95" width="9.7" height="19.3" />
+    <rect x="40.35"  y="83.55" width="9.7" height="9.7"  />
+    <rect x="49.95"  y="73.95" width="9.7" height="19.3" />
+    <rect x="59.55"  y="83.55" width="9.7" height="9.7"  />
+    <rect x="69.15"  y="73.95" width="9.7" height="19.3" />
+    <rect x="78.75"  y="83.55" width="9.7" height="9.7"  />
+    <rect x="88.35"  y="73.95" width="9.7" height="19.3" />
+    <rect x="97.95"  y="83.55" width="9.7" height="9.7"  />
+    <rect x="107.55" y="83.55" width="9.7" height="9.7"  />
+  </g>
+
+  <!-- Snake mid-strafe: tail on the centerline, head climbed two rows up
+       via a diagonal /-pattern (matches the in-game strafe trail). -->
+  <g class="fg">
+    <rect x="2.0"  y="50.0" width="9.6" height="9.6" />
+    <rect x="11.6" y="50.0" width="9.6" height="9.6" />
+    <rect x="21.2" y="50.0" width="9.6" height="9.6" />
+    <rect x="30.8" y="40.4" width="9.6" height="9.6" />
+    <rect x="40.4" y="30.8" width="9.6" height="9.6" />
+  </g>
+
+  <!-- Food pellet sitting one row off the floor (the in-game spawner
+       keeps food at least one cell away from walls). -->
+  <rect class="food" x="59.6" y="59.6" width="9.6" height="9.6" />
+
+  <!-- Enemy approaching from the right at snake-head elevation. -->
+  <rect class="enemy" x="78.8" y="30.8" width="9.6" height="9.6" />
+</svg>
