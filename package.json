@@ -16,7 +16,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test --project=chromium --project=firefox",
     "test:visual": "node tests/visual-docker.js",
-    "test:visual:update": "node tests/visual-docker.js --update-snapshots",
+    "test:visual:update": "node tests/visual-docker.js --update-snapshots=all",
     "test:visual:ci": "playwright test --project=visual-chromium --project=visual-firefox"
   },
   "dependencies": {
