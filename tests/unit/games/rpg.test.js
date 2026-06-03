@@ -125,10 +125,7 @@ describe('Rpg input + scroll', () => {
     // to have an even thicker roof so strafing up would land in a wall.
     const nextCol = game._worldX + 1;
     game._caveRoof.set(nextCol, game._snakeY);
-    game._caveFloor.set(
-      nextCol,
-      Math.max(1, game.rows - game._snakeY - 2)
-    );
+    game._caveFloor.set(nextCol, Math.max(1, game.rows - game._snakeY - 2));
     const startY = game._snakeY;
     game._strafe = 'up';
     game.update();
@@ -749,3 +746,448 @@ describe('Rpg render does not throw', () => {
   });
 });
 
+describe('Rpg scroll input edges', () => {
+  // Coverage for the left/right "press any key to begin" branch -- left
+  // and right intentionally don't move the snake in the scroller, but
+  // they still flip `_started` so the title screen unblocks.
+  it.each([['ArrowLeft'], ['ArrowRight'], ['KeyA'], ['KeyD']])(
+    '%s in scroll phase starts the game without strafing',
+    (code) => {
+      const game = createEngine(Rpg);
+      game.start();
+      const startY = game._snakeY;
+      dispatchKey(code);
+      game.stop();
+      expect(game._started).toBe(true);
+      expect(game._strafe).toBeNull();
+      expect(game._snakeY).toBe(startY);
+    }
+  );
+
+  it('ignores keydown after game over', () => {
+    const game = createEngine(Rpg);
+    game.gameOver = true;
+    game.start();
+    dispatchKey('ArrowUp');
+    game.stop();
+    expect(game._heldUp).toBe(false);
+    expect(game._strafe).toBeNull();
+  });
+
+  it('releasing up while down is still held keeps the strafe pointing down', () => {
+    const game = createEngine(Rpg);
+    game.start();
+    // Press both: down then up so _strafe ends up tracking the most
+    // recent press, but _heldDown stays true.
+    dispatchKey('ArrowDown');
+    dispatchKey('ArrowUp');
+    expect(game._strafe).toBe('up');
+    expect(game._heldDown).toBe(true);
+    // Release the up key -- _heldDown is still true, so the strafe
+    // must fall back to 'down' rather than clearing entirely.
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowUp' }));
+    game.stop();
+    expect(game._strafe).toBe('down');
+  });
+
+  it('releasing down while up is still held keeps the strafe pointing up', () => {
+    const game = createEngine(Rpg);
+    game.start();
+    dispatchKey('ArrowUp');
+    dispatchKey('ArrowDown');
+    expect(game._strafe).toBe('down');
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowDown' }));
+    game.stop();
+    expect(game._strafe).toBe('up');
+  });
+});
+
+describe('Rpg _handleCombatKey edges', () => {
+  it('Digit3 is a no-op when HP is below the run threshold', () => {
+    const game = createEngine(Rpg);
+    game._hp = 1; // forces _canRun() -> false
+    game._combat = makeCombat({
+      enemy: { hp: 20, maxHp: 20, attackMin: 0, attackMax: 0 },
+    });
+    game._phase = 'combat';
+    const spy = vi.spyOn(game, '_resolveCombatTurn');
+    game._handleCombatKey('Digit3', { preventDefault() {} });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('does nothing while the spiral wipe is mid-transition', () => {
+    const game = createEngine(Rpg);
+    game._combat = makeCombat();
+    game._phase = 'combat';
+    game._transition = {
+      start: 0,
+      halfMs: 1000,
+      midFn: () => {},
+      midDone: false,
+    };
+    const spy = vi.spyOn(game, '_resolveCombatTurn');
+    game._handleCombatKey('Enter', { preventDefault() {} });
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Rpg _onFoodEaten enemy bump', () => {
+  it('falls back to dy=-2/+2 when both adjacent rows are blocked', () => {
+    const game = createEngine(Rpg);
+    game._started = true;
+    // Open a wide playable corridor so dy=±2 has room.
+    for (let c = game._worldX; c <= game._worldX + 3; c++) {
+      game._caveRoof.set(c, 0);
+      game._caveFloor.set(c, 0);
+    }
+    game._scrollerFood.push({ x: game._worldX + 1, y: game._snakeY });
+    const nextX = game._worldX + 2;
+    const target = {
+      x: nextX,
+      y: game._snakeY,
+      hp: 8,
+      maxHp: 8,
+      attackMin: 2,
+      attackMax: 4,
+    };
+    // Use stationary food pellets to block the dy=±1 rows: enemies
+    // would otherwise step out of the way before the bump runs.
+    game._scrollerFood.push({ x: nextX, y: game._snakeY - 1 });
+    game._scrollerFood.push({ x: nextX, y: game._snakeY + 1 });
+    game._enemies.push(target);
+    game.update();
+    // The pellet on the snake row was eaten; the dy=±1 pellets are
+    // still in place because they're not on the head's cell.
+    expect(game._scrollerFood.length).toBeGreaterThanOrEqual(2);
+    expect(target.y).toBe(game._snakeY - 2);
+  });
+
+  it('leaves the enemy in place when all four bump rows are blocked', () => {
+    const game = createEngine(Rpg);
+    game._started = true;
+    for (let c = game._worldX; c <= game._worldX + 3; c++) {
+      game._caveRoof.set(c, 0);
+      game._caveFloor.set(c, 0);
+    }
+    game._scrollerFood.push({ x: game._worldX + 1, y: game._snakeY });
+    const nextX = game._worldX + 2;
+    const target = {
+      x: nextX,
+      y: game._snakeY,
+      hp: 8,
+      maxHp: 8,
+      attackMin: 2,
+      attackMax: 4,
+    };
+    for (const dy of [-1, 1, -2, 2]) {
+      game._scrollerFood.push({ x: nextX, y: game._snakeY + dy });
+    }
+    game._enemies.push(target);
+    const startY = target.y;
+    game.update();
+    // No room to bump -> stays put.
+    expect(target.y).toBe(startY);
+  });
+});
+
+describe('Rpg _advanceTransition', () => {
+  it('reports fill phase during the first half', () => {
+    const game = createEngine(Rpg);
+    let now = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    game._beginTransition({ midFn: vi.fn() });
+    now = 1500; // half of the way through the fill (halfMs=1200)
+    const s = game._advanceTransition(performance.now());
+    expect(s).not.toBeNull();
+    expect(s.unfilling).toBe(false);
+    expect(s.progress).toBeGreaterThan(0);
+    expect(s.progress).toBeLessThan(1);
+  });
+
+  it('fires midFn once when crossing the halfway point and reports unfill phase', () => {
+    const game = createEngine(Rpg);
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const midFn = vi.fn();
+    game._beginTransition({ midFn });
+    // Second half (between halfMs and 2*halfMs).
+    now = 1300; // 100ms into second half
+    const s = game._advanceTransition(performance.now());
+    expect(midFn).toHaveBeenCalledOnce();
+    expect(s.unfilling).toBe(true);
+  });
+
+  it('fires midFn once at end and clears the transition when elapsed >= 2*halfMs', () => {
+    const game = createEngine(Rpg);
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const midFn = vi.fn();
+    game._beginTransition({ midFn });
+    now = 5000; // well past 2 * 1200 = 2400
+    const s = game._advanceTransition(performance.now());
+    expect(midFn).toHaveBeenCalledOnce();
+    expect(s).toBeNull();
+    expect(game._transition).toBeNull();
+  });
+
+  it('does not double-call midFn when the transition is advanced past the end after the halfway crossing', () => {
+    const game = createEngine(Rpg);
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const midFn = vi.fn();
+    game._beginTransition({ midFn });
+    now = 1300;
+    game._advanceTransition(performance.now());
+    now = 5000;
+    game._advanceTransition(performance.now());
+    expect(midFn).toHaveBeenCalledOnce();
+  });
+
+  it('returns null without throwing when no transition is active', () => {
+    const game = createEngine(Rpg);
+    expect(game._advanceTransition(0)).toBeNull();
+  });
+});
+
+describe('Rpg combat normalization + floaters', () => {
+  it('_normalizeCombat backfills missing animQueue and floaters on partial fixtures', () => {
+    const game = createEngine(Rpg);
+    const c = { enemy: { hp: 5, maxHp: 5, attackMin: 1, attackMax: 1 } };
+    game._normalizeCombat(c);
+    expect(Array.isArray(c.animQueue)).toBe(true);
+    expect(Array.isArray(c.floaters)).toBe(true);
+  });
+
+  it("_pushFloater appends to the active combat's floater list", () => {
+    const game = createEngine(Rpg);
+    game._combat = makeCombat();
+    game._pushFloater('enemy', '-3');
+    expect(game._combat.floaters).toHaveLength(1);
+    expect(game._combat.floaters[0]).toMatchObject({
+      actor: 'enemy',
+      text: '-3',
+    });
+  });
+
+  it('_pushFloater is a no-op when there is no active combat', () => {
+    const game = createEngine(Rpg);
+    game._combat = null;
+    expect(() => game._pushFloater('enemy', '-3')).not.toThrow();
+  });
+});
+
+describe('Rpg combat selection snapping', () => {
+  it("snaps c.selected from run to attack when the player's HP falls below the run threshold mid-turn", () => {
+    const game = createEngine(Rpg);
+    game._hp = 7; // above RUN_MIN_HP (6) initially
+    game._combat = makeCombat({
+      selected: 'run',
+      // Big-attack enemy: enemy.attackMin=attackMax=7 so the counter-
+      // swing drops the player to 0 below the run threshold but still
+      // > 0 (the dying-branch returns before the snap).
+      enemy: { hp: 99, maxHp: 99, attackMin: 6, attackMax: 6 },
+    });
+    game._phase = 'combat';
+    // All rolls = 0 so player + enemy both swing for min, enemy picks
+    // attack, no reflects.
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    game._resolveCombatTurn('attack');
+    expect(game._hp).toBeGreaterThan(0);
+    expect(game._canRun()).toBe(false);
+    expect(game._combat.selected).toBe('attack');
+  });
+});
+
+describe('Rpg render render branches', () => {
+  // Coverage for the scroll-phase render paths that draw cave, food,
+  // enemies, snake segments, HP bar, score, and border at the same time.
+  it('renders the scroll phase with cave + food + enemies + segments', () => {
+    const game = createEngine(Rpg);
+    // Populate visible food and enemies inside the camera window.
+    game._scrollerFood.push({ x: game._worldX + 1, y: game._snakeY });
+    game._scrollerFood.push({ x: game._worldX + 3, y: game._snakeY - 1 });
+    game._enemies.push({
+      x: game._worldX + 2,
+      y: game._snakeY,
+      hp: 5,
+      maxHp: 8,
+      attackMin: 2,
+      attackMax: 4,
+    });
+    // Add tail segments so _drawSnake has more than just the head and
+    // covers the left-edge cull branch.
+    game._segments.push({ x: game._worldX - 1, y: game._snakeY });
+    game._segments.push({ x: game._worldX - 5, y: game._snakeY }); // off-screen
+    expect(() => game.render()).not.toThrow();
+  });
+
+  // Coverage for the combat render path including the live animation
+  // queue (player + enemy lunges, counter brace, pause), the reflected
+  // overlay branch, and the floating-damage drift.
+  it('renders the combat phase with a live anim queue, reflected flag, and floaters', () => {
+    const game = createEngine(Rpg);
+    let now = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    game._phase = 'combat';
+    game._combat = makeCombat({
+      enemy: { hp: 6, maxHp: 10, attackMin: 2, attackMax: 4 },
+      pendingPlayerDamage: 1,
+      pendingEnemyDamage: 1,
+      animQueue: [
+        // Live attack with explicit startMs so _advanceCombatAnim skips
+        // the onStart path and goes straight into the overlay branch.
+        {
+          actor: 'player',
+          kind: 'attack',
+          damage: 3,
+          durationMs: 360,
+          startMs: 900,
+        },
+      ],
+      floaters: [
+        {
+          actor: 'enemy',
+          text: '-3',
+          jitter: 0.2,
+          durationMs: 1500,
+          startMs: 950,
+        },
+        {
+          actor: 'player',
+          text: '-2',
+          jitter: -0.3,
+          durationMs: 1500,
+          startMs: 950,
+        },
+      ],
+    });
+    expect(() => game.render()).not.toThrow();
+
+    // Advance into a reflected enemy-lunge to cover the reflected overlay
+    // branch, then a counter brace to cover that kind, then a pause.
+    game._combat.animQueue.push({
+      actor: 'enemy',
+      kind: 'attack',
+      damage: 2,
+      reflected: true,
+      durationMs: 360,
+      startMs: 950,
+    });
+    game._combat.animQueue.push({
+      actor: 'player',
+      kind: 'counter',
+      durationMs: 320,
+      startMs: 950,
+    });
+    game._combat.animQueue.push({
+      actor: 'none',
+      kind: 'pause',
+      durationMs: 100,
+      startMs: 950,
+    });
+    now = 1100; // partway through the head anim
+    expect(() => game.render()).not.toThrow();
+  });
+
+  it('expires floaters once their lifetime elapses', () => {
+    const game = createEngine(Rpg);
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    game._phase = 'combat';
+    game._combat = makeCombat({
+      floaters: [
+        {
+          actor: 'player',
+          text: '-1',
+          jitter: 0,
+          durationMs: 1500,
+          startMs: 0,
+        },
+      ],
+    });
+    // Render once so the floater's startMs binds, then skip past its
+    // lifetime so the next render trims it.
+    game.render();
+    now = 2000;
+    game.render();
+    expect(game._combat.floaters).toHaveLength(0);
+  });
+
+  it('renders the spiral overlay during both halves of the transition without throwing', () => {
+    const game = createEngine(Rpg);
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    game._beginTransition({ midFn: () => {} });
+    // First half -- fill in from the center.
+    now = 600;
+    expect(() => game.render()).not.toThrow();
+    // Second half -- unfill outward (same order).
+    now = 1800;
+    expect(() => game.render()).not.toThrow();
+  });
+
+  it('renders the combat phase under an active transition (sprite/menu still drawn)', () => {
+    const game = createEngine(Rpg);
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    game._phase = 'combat';
+    game._combat = makeCombat();
+    game._beginTransition({ midFn: () => {} });
+    now = 600;
+    expect(() => game.render()).not.toThrow();
+  });
+
+  it('renders the game-over banner when the player has died', () => {
+    const game = createEngine(Rpg);
+    game.gameOver = true;
+    expect(() => game.render()).not.toThrow();
+  });
+
+  it('renders the combat menu with run greyed out when HP is below the threshold', () => {
+    const game = createEngine(Rpg);
+    game._hp = 2; // _canRun() -> false
+    game._phase = 'combat';
+    game._combat = makeCombat();
+    expect(() => game.render()).not.toThrow();
+  });
+});
+
+describe('Rpg combat anim onStart / onComplete', () => {
+  it('fires onStart on the first frame an anim becomes the head', () => {
+    const game = createEngine(Rpg);
+    let now = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const onStart = vi.fn();
+    game._phase = 'combat';
+    game._combat = makeCombat({
+      animQueue: [
+        { actor: 'player', kind: 'attack', durationMs: 100, onStart },
+      ],
+    });
+    game.render();
+    expect(onStart).toHaveBeenCalledOnce();
+  });
+
+  it('fires onComplete and advances past finished anims', () => {
+    const game = createEngine(Rpg);
+    let now = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const onComplete = vi.fn();
+    game._phase = 'combat';
+    game._combat = makeCombat({
+      animQueue: [
+        {
+          actor: 'player',
+          kind: 'attack',
+          durationMs: 100,
+          startMs: 800,
+          onComplete,
+        },
+        { actor: 'enemy', kind: 'attack', durationMs: 100 },
+      ],
+    });
+    game.render();
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(game._combat.animQueue[0].actor).toBe('enemy');
+  });
+});

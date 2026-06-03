@@ -522,4 +522,128 @@ describe('Engine: resize handling', () => {
     // No change on a repeat call with the same rect.
     expect(engine._syncCanvasSize()).toBe(false);
   });
+
+  it('ResizeObserver callback resizes + repaints on a RAF tick when the rect grows', () => {
+    // Swap the global RO with one that lets us trigger the observer
+    // callback manually so we can step through the entire resize path.
+    let observerCb = null;
+    const realRO = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(cb) {
+        observerCb = cb;
+      }
+      observe() {}
+      disconnect() {}
+    };
+    let rafCb = null;
+    const realRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (cb) => {
+      rafCb = cb;
+      return 1;
+    };
+    try {
+      const engine = createEngine();
+      const renderSpy = vi.spyOn(engine, 'render');
+      const initialW = engine.canvas.width;
+      // Resize the underlying canvas before firing the observer cb so
+      // the RAF callback's _syncCanvasSize sees a different rect.
+      engine.canvas.getBoundingClientRect = () => makeCanvasRect(900, 700);
+
+      // Fire the observer twice -- the second invocation must short-
+      // circuit because _resizePending is true after the first.
+      observerCb();
+      observerCb();
+      expect(rafCb).not.toBeNull();
+      rafCb();
+
+      expect(engine.canvas.width).not.toBe(initialW);
+      expect(renderSpy).toHaveBeenCalled();
+    } finally {
+      globalThis.ResizeObserver = realRO;
+      globalThis.requestAnimationFrame = realRaf;
+    }
+  });
+});
+
+describe('Engine: setDirection edge branches', () => {
+  it('rejects a buffered U-turn against the already-queued primary direction', () => {
+    // The reversal guard at the primary-direction site is tested
+    // elsewhere; this covers the parallel guard at the buffered site:
+    // press up, then immediately press down -- the down must be
+    // dropped instead of stored as `bufferedDirection`.
+    const engine = createEngine();
+    const snake = engine.addSnake({
+      head: { x: 5, y: 5 },
+      direction: 'right',
+      length: 3,
+    });
+    engine.stepSnake(snake);
+    engine.stepSnake(snake);
+
+    engine.setDirection(snake, 'up');
+    engine.setDirection(snake, 'down');
+    expect(snake.bufferedDirection).toBeNull();
+  });
+
+  it('ignores a buffered direction that equals the already-queued one', () => {
+    const engine = createEngine();
+    const snake = engine.addSnake({
+      head: { x: 5, y: 5 },
+      direction: 'right',
+      length: 3,
+    });
+    engine.stepSnake(snake);
+
+    engine.setDirection(snake, 'up');
+    engine.setDirection(snake, 'up'); // dupe -> dropped
+    expect(snake.bufferedDirection).toBeNull();
+  });
+});
+
+describe('Engine: randomEmptyCell deterministic fallback', () => {
+  it('returns a valid free cell even when every Math.random() pick hits an excluded slot', () => {
+    // Build a grid with a single excluded cell at index 0 (snake head
+    // at 0,0). Pin Math.random to a value that always maps to index 0
+    // (0 * total = 0 -> floor = 0), so the budget loop exhausts and
+    // the deterministic O(total) fallback runs.
+    const engine = createEngine(Engine, { cols: 3, rows: 3 });
+    engine.addSnake({ head: { x: 0, y: 0 }, length: 1 });
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const cell = engine.randomEmptyCell();
+    expect(cell).not.toBeNull();
+    // Fallback's k = floor(0 * free) = 0 -> first free cell after the
+    // excluded one, which is (0, 1) under the x*rows+y encoding.
+    expect(cell).toEqual({ x: 0, y: 1 });
+  });
+});
+
+describe('Engine: setTickRate accumulator clamp', () => {
+  it('clips _tickAccum down to the new interval when it would otherwise burst', () => {
+    const engine = createEngine(Engine, { tickRate: 1 });
+    // Stale accumulator from a previous (slower) interval. The clamp
+    // exists to prevent a flurry of catch-up ticks when the tick rate
+    // jumps up.
+    engine._tickAccum = 10;
+    engine.setTickRate(60);
+    expect(engine._tickAccum).toBeLessThanOrEqual(engine._tickInterval);
+  });
+});
+
+describe('Engine: wall draw chamfer corners', () => {
+  it('renders a wall plus-shape (every chamfer corner present) without throwing', () => {
+    // A plus shape at the grid center has the central cell with
+    // neighbors on all four cardinal sides and empty diagonals -- the
+    // exact configuration that triggers all four chamfer-true branches
+    // in _drawWalls inside a single cell's polygon.
+    const engine = createEngine(Engine, { cols: 5, rows: 5 });
+    const center = { x: 2, y: 2 };
+    engine.addWall(center);
+    engine.addWall({ x: 2, y: 1 });
+    engine.addWall({ x: 2, y: 3 });
+    engine.addWall({ x: 1, y: 2 });
+    engine.addWall({ x: 3, y: 2 });
+    // Force a render -- canvas + Path2D are stubbed so this exercises
+    // the chamfer polygon math without doing real drawing.
+    expect(() => engine.render()).not.toThrow();
+  });
 });

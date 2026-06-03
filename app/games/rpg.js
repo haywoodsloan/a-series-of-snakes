@@ -374,11 +374,7 @@ export default class Rpg extends Engine {
       event?.preventDefault();
       c.selected = this._nextAction(c.selected);
       this._dirty = true;
-    } else if (
-      code === 'Enter' ||
-      code === 'NumpadEnter' ||
-      code === 'Space'
-    ) {
+    } else if (code === 'Enter' || code === 'NumpadEnter' || code === 'Space') {
       event?.preventDefault();
       this._resolveCombatTurn(c.selected);
     } else if (code === 'Digit1') {
@@ -508,10 +504,7 @@ export default class Rpg extends Engine {
     // Length scales with the current-HP ratio so the visible snake
     // physically reflects how much damage it has taken. Always at least
     // one cell so a barely-alive snake still has a visible head.
-    return Math.max(
-      1,
-      Math.round((this._maxLength * this._hp) / this._maxHp)
-    );
+    return Math.max(1, Math.round((this._maxLength * this._hp) / this._maxHp));
   }
 
   // ---------- Cave ----------
@@ -534,7 +527,10 @@ export default class Rpg extends Engine {
     );
     let open = this.rows - roof - floor;
     while (open < this._caveMinOpen) {
-      if (roof > CAVE_THICKNESS_MIN && (Math.random() < 0.5 || floor <= CAVE_THICKNESS_MIN)) {
+      if (
+        roof > CAVE_THICKNESS_MIN &&
+        (Math.random() < 0.5 || floor <= CAVE_THICKNESS_MIN)
+      ) {
         roof -= 1;
       } else if (floor > CAVE_THICKNESS_MIN) {
         floor -= 1;
@@ -976,7 +972,12 @@ export default class Rpg extends Engine {
    *                lunge isn't the first anim in the queue; optional
    *                when it is)
    */
-  _queueAttackAnim(c, attacker, damage, { reflected = false, defer = false } = {}) {
+  _queueAttackAnim(
+    c,
+    attacker,
+    damage,
+    { reflected = false, defer = false } = {}
+  ) {
     const target = reflected
       ? attacker
       : attacker === 'player'
@@ -1473,7 +1474,16 @@ export default class Rpg extends Engine {
    * from the next cell's snapped origin) so adjacent fills share an
    * exact edge -- otherwise sub-pixel seams show between cells.
    */
-  _fillPixelCircle(cx, cy, radius, cs, color, gx = 0, gy = 0, thickness = null) {
+  _fillPixelCircle(
+    cx,
+    cy,
+    radius,
+    cs,
+    color,
+    gx = 0,
+    gy = 0,
+    thickness = null
+  ) {
     const { ctx } = this;
     const r2outer = radius * radius;
     const r2inner =
@@ -1608,8 +1618,7 @@ export default class Rpg extends Engine {
       // visibly appears "on" the actor rather than already floating
       // above the head.
       const top =
-        (isEnemy ? geom.enemyBaseY : geom.playerBaseY) +
-        geom.spriteSize * 0.5;
+        (isEnemy ? geom.enemyBaseY : geom.playerBaseY) + geom.spriteSize * 0.5;
       // Ease-out drift: quick rise then slow. Total travel kept short
       // (~70% of sprite height) so the number doesn't rocket off the
       // top of the panel before the player can read it.
@@ -1648,7 +1657,10 @@ export default class Rpg extends Engine {
     // overflowing on large ones. Calibrated to ~75% of the earlier
     // "too big" sizing.
     const slotH0 = (panelH * (0.86 - 0.18)) / ACTIONS.length;
-    const fontPx = Math.max(21, Math.round(Math.min(cell * 1.8, slotH0 * 0.525)));
+    const fontPx = Math.max(
+      21,
+      Math.round(Math.min(cell * 1.8, slotH0 * 0.525))
+    );
     ctx.font = `${fontPx}px PublicPixel, monospace`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -1708,10 +1720,7 @@ export default class Rpg extends Engine {
     // a smooth radial fill.
     const fieldW = layout.cell * this.cols;
     const fieldH = layout.cell * this.rows;
-    const cell = Math.max(
-      8,
-      Math.round(layout.cell * SPIRAL_CELL_SCALE)
-    );
+    const cell = Math.max(8, Math.round(layout.cell * SPIRAL_CELL_SCALE));
     const cols = Math.ceil(fieldW / cell);
     const rows = Math.ceil(fieldH / cell);
     // Center the spiral grid inside the playfield so the leftover

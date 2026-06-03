@@ -93,4 +93,28 @@ describe('settings', () => {
       assertDefaults(await reload());
     });
   });
+
+  describe('safeStorage', () => {
+    it('returns defaults when accessing window.localStorage throws', async () => {
+      // Simulate a sandbox that throws on the localStorage *getter*
+      // (some private-mode iframes do this). The module must swallow
+      // and fall back to in-memory defaults.
+      const desc = Object.getOwnPropertyDescriptor(window, 'localStorage');
+      Object.defineProperty(window, 'localStorage', {
+        configurable: true,
+        get() {
+          throw new Error('blocked');
+        },
+      });
+      try {
+        vi.resetModules();
+        const fresh = await import('~/utils/settings.js');
+        expect(fresh.SPEED_OPTIONS).toContain(fresh.settings.baseSpeed);
+        expect(typeof fresh.settings.gridLines).toBe('boolean');
+        expect(fresh.GRID_SIZE_OPTIONS).toContain(fresh.settings.gridSize);
+      } finally {
+        if (desc) Object.defineProperty(window, 'localStorage', desc);
+      }
+    });
+  });
 });

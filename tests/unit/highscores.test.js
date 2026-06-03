@@ -102,3 +102,36 @@ describe('topScore', () => {
     expect(topScore(KEY)).toBe(12);
   });
 });
+
+describe('safeStorage', () => {
+  it('loadScores returns [] when window.localStorage throws on access', () => {
+    const desc = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('blocked');
+      },
+    });
+    try {
+      expect(loadScores(KEY)).toEqual([]);
+    } finally {
+      if (desc) Object.defineProperty(window, 'localStorage', desc);
+    }
+  });
+
+  it('saveScore returns the in-memory list without throwing when storage is unavailable', () => {
+    const desc = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('blocked');
+      },
+    });
+    try {
+      const list = saveScore(KEY, 'AAA', 5);
+      expect(list).toEqual([{ name: 'AAA', score: 5 }]);
+    } finally {
+      if (desc) Object.defineProperty(window, 'localStorage', desc);
+    }
+  });
+});

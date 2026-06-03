@@ -31,4 +31,26 @@ describe('Home page game selector', () => {
     const wrapper = await mountSuspended(IndexPage, { route: '/' });
     expect(wrapper.find('button.prev').attributes('disabled')).toBeDefined();
   });
+
+  it('next/prev buttons match the current page boundary', async () => {
+    const wrapper = await mountSuspended(IndexPage, { route: '/' });
+    // With <= PAGE_SIZE games the selector lives on a single page, so
+    // both the prev and next buttons must report disabled. This pins
+    // the boundary computation that the click handlers rely on.
+    const prev = wrapper.find('button.prev');
+    const next = wrapper.find('button.next');
+    expect(prev.attributes('disabled')).toBeDefined();
+    if (games.length <= PAGE_SIZE) {
+      expect(next.attributes('disabled')).toBeDefined();
+    } else {
+      expect(next.attributes('disabled')).toBeUndefined();
+      // Multi-page: click forward then back to exercise both handlers.
+      await next.trigger('click');
+      expect(
+        wrapper.find('button.prev').attributes('disabled')
+      ).toBeUndefined();
+      await wrapper.find('button.prev').trigger('click');
+      expect(wrapper.find('button.prev').attributes('disabled')).toBeDefined();
+    }
+  });
 });

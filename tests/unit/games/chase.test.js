@@ -3,6 +3,7 @@ import Chase from '~/games/chase.js';
 
 import {
   createEngine,
+  dispatchKey,
   setupEngineTest,
   withFakeTimers,
 } from '../../helpers/engine.js';
@@ -156,5 +157,16 @@ describe('Chase', () => {
 
     game._stepFood();
     expect(game.food[0]).toMatchObject({ x: 3, y: 5 });
+  });
+
+  it('first input flips _started and schedules the food timer', () => {
+    const game = createEngine(Chase);
+    game.start();
+    expect(game._started).toBe(false);
+    expect(game._foodTimer).toBe(0);
+    dispatchKey('ArrowRight');
+    expect(game._started).toBe(true);
+    expect(game._foodTimer).not.toBe(0);
+    game.stop();
   });
 });

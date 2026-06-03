@@ -7,16 +7,16 @@ Deployed at: https://haywoodsloan.github.io/a-series-of-snakes/
 
 ## Game variants
 
-| Mode       | Description                                                                      |
-| ---------- | -------------------------------------------------------------------------------- |
-| `classic`  | One snake and one pellet on a wrapping grid.                                     |
-| `chase`    | The pellet moves away from the snake's head on its own timer.                    |
-| `tunnels`  | Limited-use ability to pass through the snake's own body.                        |
-| `spikes`   | Wall obstacles are placed around the board. Contact ends the run.                |
-| `endless`  | No food. The snake grows every tick. Score is the length reached.                |
-| `mirror`   | Two snakes move in mirrored directions across the center line from one input.    |
-| `duo`      | Two snakes share the board. WASD drives one, arrows drive the other.             |
-| `inverted` | Every direction input is reversed before being applied.                          |
+| Mode       | Description                                                                   |
+| ---------- | ----------------------------------------------------------------------------- |
+| `classic`  | One snake and one pellet on a wrapping grid.                                  |
+| `chase`    | The pellet moves away from the snake's head on its own timer.                 |
+| `tunnels`  | Limited-use ability to pass through the snake's own body.                     |
+| `spikes`   | Wall obstacles are placed around the board. Contact ends the run.             |
+| `endless`  | No food. The snake grows every tick. Score is the length reached.             |
+| `mirror`   | Two snakes move in mirrored directions across the center line from one input. |
+| `duo`      | Two snakes share the board. WASD drives one, arrows drive the other.          |
+| `inverted` | Every direction input is reversed before being applied.                       |
 
 A separate top-10 leaderboard is stored in `localStorage` for each
 `(game, gridSize, baseSpeed)` combination.
@@ -40,21 +40,21 @@ npm run preview
 
 ## Scripts
 
-| Script                       | What it does                                                            |
-| ---------------------------- | ----------------------------------------------------------------------- |
-| `npm run dev`                | Nuxt dev server with HMR.                                               |
-| `npm run generate`           | Static prerender into `.output/public/`.                                |
-| `npm run preview`            | Serve the generated bundle.                                             |
-| `npm run lint`               | ESLint over the whole repo.                                             |
-| `npm run format`             | Prettier write.                                                         |
-| `npm test`                   | Coverage + e2e + visual. Full pre-push gate.                            |
-| `npm run test:unit`          | Vitest unit project (happy-dom).                                        |
-| `npm run test:integration`   | Vitest integration project (full Nuxt runtime).                         |
-| `npm run test:coverage`      | Both Vitest projects with the coverage threshold gate.                  |
-| `npm run test:e2e`           | Playwright e2e against Chromium and Firefox.                            |
-| `npm run test:visual`        | Visual suite, in the pinned Playwright Docker image.                    |
-| `npm run test:visual:update` | Re-capture visual baselines (same image).                               |
-| `npm run test:visual:ci`     | Visual suite without Docker. Used by CI, which already runs on Linux.   |
+| Script                       | What it does                                                          |
+| ---------------------------- | --------------------------------------------------------------------- |
+| `npm run dev`                | Nuxt dev server with HMR.                                             |
+| `npm run generate`           | Static prerender into `.output/public/`.                              |
+| `npm run preview`            | Serve the generated bundle.                                           |
+| `npm run lint`               | ESLint over the whole repo.                                           |
+| `npm run format`             | Prettier write.                                                       |
+| `npm test`                   | Coverage + e2e + visual. Full pre-push gate.                          |
+| `npm run test:unit`          | Vitest unit project (happy-dom).                                      |
+| `npm run test:integration`   | Vitest integration project (full Nuxt runtime).                       |
+| `npm run test:coverage`      | Both Vitest projects with the coverage threshold gate.                |
+| `npm run test:e2e`           | Playwright e2e against Chromium and Firefox.                          |
+| `npm run test:visual`        | Visual suite, in the pinned Playwright Docker image.                  |
+| `npm run test:visual:update` | Re-capture visual baselines (same image).                             |
+| `npm run test:visual:ci`     | Visual suite without Docker. Used by CI, which already runs on Linux. |
 
 ## Layout
 
