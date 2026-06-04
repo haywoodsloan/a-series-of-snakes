@@ -83,13 +83,30 @@ describe('Rpg input + scroll', () => {
     expect(game._worldX).toBe(startX);
   });
 
-  it('advances the snake forward one column per tick and increments score', () => {
+  it('advances the snake forward one column per tick', () => {
     const game = createEngine(Rpg);
     game._started = true;
     const startX = game._worldX;
     game.update();
     expect(game._worldX).toBe(startX + 1);
+    game.update();
+    expect(game._worldX).toBe(startX + 2);
+  });
+
+  it('increments score per food eaten, not per tick', () => {
+    const game = createEngine(Rpg);
+    game._started = true;
+    expect(game.score).toBe(0);
+    // Two empty ticks must not move the score -- score is no longer
+    // tied to forward distance.
+    game.update();
+    game.update();
+    expect(game.score).toBe(0);
+    // Park a pellet on the next cell so the next tick is a pickup.
+    game._scrollerFood.push({ x: game._worldX + 1, y: game._snakeY });
+    game.update();
     expect(game.score).toBe(1);
+    game._scrollerFood.push({ x: game._worldX + 1, y: game._snakeY });
     game.update();
     expect(game.score).toBe(2);
   });
@@ -154,6 +171,22 @@ describe('Rpg food pickups', () => {
     expect(game._maxLength).toBe(startMaxLength + 1);
     expect(game._hp).toBe(game._maxHp); // healed and capped at new max
     expect(game._scrollerFood).toHaveLength(0);
+  });
+
+  it('a pellet eaten at low HP fully restores HP including the new bonus point', () => {
+    // Pellets are a strict reward: they should always top the snake
+    // back off to the just-bumped max, even when the player walks in
+    // missing most of their HP. The partial heal of the old design
+    // could leave the snake at, say, 6/21 after a pickup -- this
+    // covers the "full refill" guarantee that replaces it.
+    const game = createEngine(Rpg);
+    game._started = true;
+    game._hp = 1;
+    const startMaxHp = game._maxHp;
+    game._scrollerFood.push({ x: game._worldX + 1, y: game._snakeY });
+    game.update();
+    expect(game._maxHp).toBe(startMaxHp + 1);
+    expect(game._hp).toBe(game._maxHp);
   });
 
   it('an enemy parked one cell behind the eaten pellet gets bumped off the snake row so the next tick does not feel like an invisible collision', () => {
@@ -253,10 +286,12 @@ describe('Rpg combat', () => {
       playerCountering: true,
     });
     // Sequence (counter action consumes no rolls before the enemy
-    // turn): enemy-attack-chance (0 -> attack), enemy damage randInt
-    // (0 -> min), reflect roll (0.99 -> fails). Damage hits the
-    // player at full strength like a regular attack would.
+    // turn): enemy-attack-chance (0 -> attack), enemy hit roll
+    // (0 -> hits, < HIT_CHANCE), enemy damage randInt (0 -> min),
+    // reflect roll (0.99 -> fails). Damage hits the player at full
+    // strength like a regular attack would.
     vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0.99)
@@ -297,10 +332,12 @@ describe('Rpg combat', () => {
       enemy: { hp: 50, maxHp: 50, attackMin: 0, attackMax: 0 },
       enemyCountering: true,
     });
-    // Sequence: player damage randInt (0 -> 3), reflect roll
-    // (0.99 -> fails), enemy attack chance (0 -> attack) and damage
-    // (0 -> 0 harmless). Player damage lands on the enemy as usual.
+    // Sequence: player hit roll (0 -> hits), player damage randInt
+    // (0 -> 3), reflect roll (0.99 -> fails), enemy attack chance
+    // (0 -> attack), enemy hit roll (0 -> hits), enemy damage (0 -> 0
+    // harmless). Player damage lands on the enemy as usual.
     vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0.99)
       .mockReturnValue(0);
@@ -604,14 +641,18 @@ describe('Rpg enemies', () => {
     expect(tougherStats.attackMin).toBeGreaterThanOrEqual(baseStats.attackMin);
   });
 
-  it('stops chasing once an enemy has slid behind the snake', () => {
+  it('keeps chasing on Y but stops chasing on X once an enemy has slid behind the snake', () => {
     const game = createEngine(Rpg);
     game._snakeY = 5;
-    // After enough scroll the world advances past a missed enemy: in
-    // engine coords, dx = worldX - enemy.x is positive once the enemy
-    // is behind the snake's column. Whether or not y differs, the
-    // chase AI should freeze so the world-scroll alone carries it off
-    // the left edge instead of jittering uselessly behind the player.
+    // Enemy starts three columns behind the snake (dx > 0) on a
+    // different row. Freezing the AI entirely looked unnatural (the
+    // enemy just sits on screen and rides the scroll off), but
+    // chasing on X would let a behind-enemy out-pace the world
+    // scroll (ENEMY_SPEED > 1) and clamp itself to the snake's
+    // column indefinitely. The compromise: keep Y-chasing so the
+    // enemy looks alive (still turning toward the snake), but skip
+    // X-chasing so the world-scroll actually carries it off the
+    // left edge.
     const ex = game._worldX - 3;
     const ey = 2;
     for (let c = ex - 1; c <= game._worldX + 1; c++) {
@@ -628,8 +669,46 @@ describe('Rpg enemies', () => {
     });
     game._stepEnemies();
     const e = game._enemies[0];
+    // X is unchanged (behind-enemy can't chase X) but Y still steps
+    // toward the snake.
     expect(e.x).toBe(ex);
-    expect(e.y).toBe(ey);
+    expect(e.y).toBe(ey + 1);
+  });
+
+  it('lets a behind-enemy ride the scroll off the left edge instead of clamping to the snake column', () => {
+    // Concretely walk a few snake ticks worth of world-scroll +
+    // enemy steps and verify the enemy's screen position drifts
+    // monotonically left -- the original "freeze when behind" did
+    // this naturally but looked dead, and the unconditional chase
+    // had ENEMY_SPEED out-pacing the scroll so the enemy locked to
+    // the snake's column forever. This regression test catches both
+    // failure modes.
+    const game = createEngine(Rpg);
+    game._snakeY = 5;
+    const ex = game._worldX - 2;
+    const ey = game._snakeY; // Same row, no Y chase to confound things.
+    for (let c = ex - 5; c <= game._worldX + 5; c++) {
+      game._caveRoof.set(c, 0);
+      game._caveFloor.set(c, 0);
+    }
+    game._enemies.push({
+      x: ex,
+      y: ey,
+      hp: 8,
+      maxHp: 8,
+      attackMin: 2,
+      attackMax: 4,
+    });
+    const screenX = (e) => e.x - (game._worldX - game._snakeCol);
+    const initial = screenX(game._enemies[0]);
+    // Simulate three snake ticks of scroll without re-spawning. Each
+    // tick: world advances 1, enemies (behind, same row) don't step
+    // X. Screen X must drop by 1 per tick.
+    for (let i = 0; i < 3; i++) {
+      game._worldX += 1;
+      game._stepEnemies();
+    }
+    expect(screenX(game._enemies[0])).toBe(initial - 3);
   });
 });
 
@@ -1189,5 +1268,314 @@ describe('Rpg combat anim onStart / onComplete', () => {
     game.render();
     expect(onComplete).toHaveBeenCalledOnce();
     expect(game._combat.animQueue[0].actor).toBe('enemy');
+  });
+});
+
+describe('Rpg hit / miss', () => {
+  it('a missed player attack does no damage and queues a MISS floater over the enemy', () => {
+    const game = createEngine(Rpg);
+    game._combat = makeCombat({
+      enemy: { hp: 20, maxHp: 20, attackMin: 0, attackMax: 0 },
+    });
+    game._phase = 'combat';
+    // 0.99 fails the < HIT_CHANCE check -> player whiffs.
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+    game._resolveCombatTurn('attack');
+    expect(game._combat.enemy.hp).toBe(20);
+    const playerLunge = game._combat.animQueue.find(
+      (a) => a.actor === 'player' && a.kind === 'attack'
+    );
+    expect(playerLunge).toBeDefined();
+    expect(playerLunge.missed).toBe(true);
+    // MISS floats over the target (the enemy) so it lines up with
+    // damage numbers on hits -- both appear over the actor whose
+    // hitbox the swing was aimed at.
+    const miss = game._combat.floaters.find(
+      (f) => f.actor === 'enemy' && f.text === 'MISS'
+    );
+    expect(miss).toBeDefined();
+    // And nothing whiff-related lands on the attacker.
+    expect(
+      game._combat.floaters.some(
+        (f) => f.actor === 'player' && f.text === 'MISS'
+      )
+    ).toBe(false);
+  });
+
+  it('a missed player attack still wastes a primed enemy counter (no reflect on a whiff)', () => {
+    const game = createEngine(Rpg);
+    const startHp = game._hp;
+    game._combat = makeCombat({
+      enemy: { hp: 50, maxHp: 50, attackMin: 0, attackMax: 0 },
+      enemyCountering: true,
+    });
+    game._phase = 'combat';
+    // Player misses (hit roll > HIT_CHANCE). Reflect should never
+    // fire because there's no damage to bounce.
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+    game._resolveCombatTurn('attack');
+    // Neither side loses HP -- a miss + counter is a wash.
+    expect(game._hp).toBe(startHp);
+    expect(game._combat.enemy.hp).toBe(50);
+  });
+
+  it('a missed enemy attack does no damage to the player and flags the lunge as a whiff with a deferred MISS floater on the player', () => {
+    const game = createEngine(Rpg);
+    const startHp = game._hp;
+    game._combat = makeCombat({
+      enemy: { hp: 50, maxHp: 50, attackMin: 10, attackMax: 10 },
+    });
+    game._phase = 'combat';
+    // Sequence: player picks counter (no rolls), enemy attack chance
+    // (0 -> attack), enemy hit roll (0.99 -> miss). No damage roll
+    // because the miss short-circuits before the damage branch.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.99)
+      .mockReturnValue(0);
+    game._resolveCombatTurn('counter');
+    expect(game._hp).toBe(startHp);
+    const enemyLunge = game._combat.animQueue.find(
+      (a) => a.actor === 'enemy' && a.kind === 'attack'
+    );
+    expect(enemyLunge).toBeDefined();
+    expect(enemyLunge.missed).toBe(true);
+    // The MISS floater is deferred (onStart) so the text pops on
+    // contact rather than the instant resolve runs. Fire it manually
+    // and confirm the floater lands on the player (the target of
+    // the enemy's whiff), not on the enemy.
+    expect(enemyLunge.onStart).toBeTypeOf('function');
+    enemyLunge.onStart();
+    const miss = game._combat.floaters.find((f) => f.text === 'MISS');
+    expect(miss).toBeDefined();
+    expect(miss.actor).toBe('player');
+  });
+
+  it('a successful hit roll still uses the damage range (so the hit roll does not silently consume the damage roll)', () => {
+    const game = createEngine(Rpg);
+    game._combat = makeCombat({
+      enemy: { hp: 50, maxHp: 50, attackMin: 0, attackMax: 0 },
+    });
+    game._phase = 'combat';
+    // All rolls = 0: hit succeeds, damage lands at min. Guards
+    // against an accidental refactor where the hit branch and the
+    // damage branch share the same roll.
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    game._resolveCombatTurn('attack');
+    expect(game._combat.enemy.hp).toBeLessThan(50);
+  });
+});
+
+describe('Rpg player scaling', () => {
+  it('player attack range grows with food eaten', () => {
+    const game = createEngine(Rpg);
+    const base = game._scaledPlayerStats();
+    game._foodEaten = 5;
+    const ramped = game._scaledPlayerStats();
+    expect(ramped.attackMax).toBeGreaterThan(base.attackMax);
+    expect(ramped.attackMin).toBeGreaterThanOrEqual(base.attackMin);
+  });
+
+  it('a late-game player attack deals more damage than an early-game one with the same dice', () => {
+    // Pin every damage roll to land exactly at min for both runs so
+    // any delta between the two outcomes is the food ramp itself,
+    // not noise from the randInt range.
+    const earlyGame = createEngine(Rpg);
+    earlyGame._combat = makeCombat({
+      enemy: { hp: 200, maxHp: 200, attackMin: 0, attackMax: 0 },
+    });
+    earlyGame._phase = 'combat';
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    earlyGame._resolveCombatTurn('attack');
+    const earlyDamage = 200 - earlyGame._combat.enemy.hp;
+
+    vi.restoreAllMocks();
+    const lateGame = createEngine(Rpg);
+    lateGame._foodEaten = 10;
+    lateGame._combat = makeCombat({
+      enemy: { hp: 200, maxHp: 200, attackMin: 0, attackMax: 0 },
+    });
+    lateGame._phase = 'combat';
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    lateGame._resolveCombatTurn('attack');
+    const lateDamage = 200 - lateGame._combat.enemy.hp;
+
+    expect(lateDamage).toBeGreaterThan(earlyDamage);
+  });
+});
+
+describe('Rpg spiral wipe duration', () => {
+  it('completes in exactly 2 * halfMs of wall-clock time regardless of how many render frames fire in between', () => {
+    // The wipe is driven by `performance.now()` (not tick rate or
+    // speed multiplier), so the total duration is the simple sum of
+    // its two halves. This regression test pins that contract: no
+    // matter how many or how few frames the engine renders during
+    // the wipe, the transition completes exactly when wall-clock
+    // elapsed reaches 2 * halfMs.
+    const game = createEngine(Rpg);
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const midFn = vi.fn();
+    game._beginTransition({ midFn });
+    const halfMs = game._transition.halfMs;
+    // One render frame just before the swap -- still in the fill
+    // half, midFn must not have fired yet.
+    now = halfMs - 1;
+    game.render();
+    expect(midFn).not.toHaveBeenCalled();
+    expect(game._transition).not.toBeNull();
+    // One render frame just after the swap -- midFn fires exactly
+    // once, transition stays live for the unfill half.
+    now = halfMs + 1;
+    game.render();
+    expect(midFn).toHaveBeenCalledOnce();
+    expect(game._transition).not.toBeNull();
+    // One render frame just before the end -- still alive.
+    now = 2 * halfMs - 1;
+    game.render();
+    expect(game._transition).not.toBeNull();
+    // One render frame just past the end -- transition cleared.
+    now = 2 * halfMs + 1;
+    game.render();
+    expect(game._transition).toBeNull();
+  });
+
+  it('produces a similar spiral cell count across grid sizes (consistent visual cadence)', () => {
+    // Anchoring the spiral cell size to the playfield (not the play
+    // grid) keeps the wipe's visible step count roughly constant
+    // regardless of grid density -- so a sparse grid and a dense
+    // grid both show the same number of square pops over the same
+    // 2.4s window. Without this fix, dense grids ran a 20x20+
+    // spiral against a sparse grid's 8x8 and the wipe felt visibly
+    // faster on the dense one. The two engines below share the
+    // test harness's canvas so the only delta is the play grid.
+    const small = createEngine(Rpg, { cols: 12, rows: 12 });
+    const large = createEngine(Rpg, { cols: 40, rows: 40 });
+    expect(small.canvas.width).toBe(large.canvas.width);
+    expect(small.canvas.height).toBe(large.canvas.height);
+    const cellCount = (g) => {
+      const layout = g._gridLayout();
+      const fieldW = layout.cell * g.cols;
+      const fieldH = layout.cell * g.rows;
+      // Mirror the calculation inside `_drawSpiralOverlay`.
+      const cell = Math.max(8, Math.round(Math.min(fieldW, fieldH) / 14));
+      const cols = Math.ceil(fieldW / cell);
+      const rows = Math.ceil(fieldH / cell);
+      return cols * rows;
+    };
+    // The two counts should now be within a small factor of each
+    // other (under the old `layout.cell * 2` rule they differed by
+    // ~10x). A ratio band of [0.5, 2] is comfortably tighter than
+    // that and leaves room for layout border rounding.
+    const ratio = cellCount(large) / cellCount(small);
+    expect(ratio).toBeGreaterThan(0.5);
+    expect(ratio).toBeLessThan(2);
+  });
+});
+
+describe('Rpg combat layout', () => {
+  // HP-panel geometry is opposite-side mounted: player sprite on the
+  // left has its bar on the *far right* of the playfield, enemy
+  // sprite on the right has its bar on the *far left*. Bars are
+  // vertically centered on each sprite's midline. Bar width is
+  // floored at the longest worst-case label so the label always
+  // fits inside the bar.
+  it('keeps the enemy sprite + HP panel inside the playfield', () => {
+    const game = createEngine(Rpg);
+    game._combat = makeCombat({
+      // Long max HP -> wide "ENEMY 999/999" label drives the bar
+      // width up.
+      enemy: { hp: 999, maxHp: 999, attackMin: 0, attackMax: 0 },
+    });
+    game._phase = 'combat';
+    const layout = game._gridLayout();
+    const w = layout.cell * game.cols;
+    const leftEdge = layout.ox;
+    const rightEdge = layout.ox + w;
+    const geom = game._combatSpriteGeom(layout);
+    // Sprite's right edge stays inside the playfield.
+    expect(geom.enemyCenterX + geom.spriteSize / 2).toBeLessThanOrEqual(
+      rightEdge
+    );
+    // The enemy bar lives on the *opposite* (left) side, so its
+    // left edge must also stay inside the playfield.
+    expect(geom.enemyBarX).toBeGreaterThanOrEqual(leftEdge);
+    // And the player bar (far right) must not spill past the right
+    // edge either.
+    expect(geom.playerBarX + geom.barW).toBeLessThanOrEqual(rightEdge);
+  });
+
+  it('places the player HP panel on the opposite side of the player sprite', () => {
+    const game = createEngine(Rpg);
+    game._combat = makeCombat();
+    game._phase = 'combat';
+    const layout = game._gridLayout();
+    const geom = game._combatSpriteGeom(layout);
+    // Player bar's left edge must clear the sprite's right edge --
+    // it's across the sprite, not overlapping it.
+    expect(geom.playerBarX).toBeGreaterThan(
+      geom.playerCenterX + geom.spriteSize / 2
+    );
+  });
+
+  it('places the enemy HP panel on the opposite side of the enemy sprite', () => {
+    const game = createEngine(Rpg);
+    game._combat = makeCombat();
+    game._phase = 'combat';
+    const layout = game._gridLayout();
+    const geom = game._combatSpriteGeom(layout);
+    // Enemy bar's right edge must clear the sprite's left edge.
+    expect(geom.enemyBarX + geom.barW).toBeLessThan(
+      geom.enemyCenterX - geom.spriteSize / 2
+    );
+  });
+
+  it('pulls each HP panel inboard from the playfield edge so it pairs with its sprite', () => {
+    const game = createEngine(Rpg);
+    game._combat = makeCombat();
+    game._phase = 'combat';
+    const layout = game._gridLayout();
+    const w = layout.cell * game.cols;
+    const pad = Math.max(4, Math.round(layout.cell * 0.25));
+    const geom = game._combatSpriteGeom(layout);
+    // Inset from each playfield edge must exceed the trivial
+    // `pad * 2` baseline -- otherwise the bars are hugging the wall
+    // and feel detached from their sprites.
+    const playerRightInset = layout.ox + w - (geom.playerBarX + geom.barW);
+    const enemyLeftInset = geom.enemyBarX - layout.ox;
+    expect(playerRightInset).toBeGreaterThan(pad * 2);
+    expect(enemyLeftInset).toBeGreaterThan(pad * 2);
+  });
+
+  it('grows the bar width to fit the longest label so the text does not spill onto the sprite', () => {
+    const tiny = createEngine(Rpg);
+    tiny._combat = makeCombat({
+      enemy: { hp: 1, maxHp: 1, attackMin: 0, attackMax: 0 },
+    });
+    tiny._phase = 'combat';
+    const tinyGeom = tiny._combatSpriteGeom(tiny._gridLayout());
+
+    const huge = createEngine(Rpg);
+    huge._combat = makeCombat({
+      enemy: { hp: 999, maxHp: 999, attackMin: 0, attackMax: 0 },
+    });
+    huge._phase = 'combat';
+    const hugeGeom = huge._combatSpriteGeom(huge._gridLayout());
+
+    // The longer label drives the floor on barW up; the shorter
+    // label leaves the cap (targetBarW) in charge. So huge should
+    // be at least as wide as tiny, and strictly wider when the
+    // label actually exceeds the cap.
+    expect(hugeGeom.barW).toBeGreaterThanOrEqual(tinyGeom.barW);
+
+    // Confirm the longest enemy label fits inside huge's bar -- the
+    // whole point of the floor. Font formula must match
+    // _combatSpriteGeom / _drawCombatHpBar so the measured width
+    // reflects what actually gets drawn.
+    const layout = huge._gridLayout();
+    const labelFontPx = Math.max(22, Math.round(layout.cell * 1.05));
+    huge.ctx.font = `${labelFontPx}px PublicPixel, monospace`;
+    const enemyLabelW = huge.ctx.measureText('ENEMY 999/999').width;
+    expect(hugeGeom.barW).toBeGreaterThanOrEqual(enemyLabelW);
   });
 });

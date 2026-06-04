@@ -28,20 +28,29 @@ const ENEMY_SPEED = 1.2;
 const STARTING_MAX_HP = 20;
 const PLAYER_ATTACK_MIN = 3;
 const PLAYER_ATTACK_MAX = 6;
-const FOOD_HEAL = 5;
 const RUN_COST = 5;
 // Run is greyed out below this so the choice never kills the player --
 // "run" should always leave at least 1 HP on the other side.
 const RUN_MIN_HP = RUN_COST + 1;
+// Each pellet eaten bumps both ends of the player's attack range so
+// the snake scales alongside the enemies it's fighting. Matches the
+// enemy ramp constants below so a mid-run trade still trends in the
+// snake's favor instead of the player feeling outpaced.
+const PLAYER_ATTACK_PER_FOOD = 0.4;
 
 // --- Enemy stats ---
 const ENEMY_BASE_HP = 8;
-const ENEMY_ATTACK_MIN = 2;
-const ENEMY_ATTACK_MAX = 4;
+const ENEMY_ATTACK_MIN = 3;
+const ENEMY_ATTACK_MAX = 5;
 // Chance Counter reflects an incoming attack back at the attacker
 // instead of letting it land. Always a coin flip -- counter is
 // high-risk, high-reward by design, and shared by both sides.
 const COUNTER_REFLECT_CHANCE = 0.5;
+// Chance a swung attack actually connects. Misses fizzle entirely --
+// no damage, no reflect, no HP change -- but the lunge anim still
+// plays so the turn has a beat and the player can read what
+// happened. Symmetric across player and enemy attacks.
+const HIT_CHANCE = 0.85;
 // --- Enemy combat AI ---
 // Baseline chance the enemy picks attack over counter on a quiet turn
 // (player did not just prime Counter, both sides at healthy HP).
@@ -173,13 +182,20 @@ const ENEMY_SPAWN_NEAR_BAND = 2;
 // --- Transition ---
 // Each half of the spiral wipe (fill or unfill) takes this long. Two
 // halves bracket a phase swap, so a combat trigger plays one full
-// fill+unfill before the player can act. Longer than the previous
-// 450ms so each cell of the square spiral has time to pop in
-// discretely instead of blurring together.
+// fill+unfill before the player can act. The wipe is driven by
+// `performance.now()` (wall-clock), so this duration is invariant
+// across tick rate, speed setting, and play-grid size -- the
+// simulation pauses for the same amount of time every time, only the
+// number of discrete spiral steps per ms changes (see below).
 const TRANSITION_HALF_MS = 1200;
-// Spiral wipe cells are drawn at this multiple of the play-grid cell.
-// Larger = fewer cells = each step more visible as a discrete square.
-const SPIRAL_CELL_SCALE = 2.0;
+// Target number of spiral cells along the playfield's shorter side.
+// Anchoring the spiral grid to a fixed cell count instead of a
+// multiple of the play cell means the wipe shows roughly the same
+// number of discrete steps over the same wall-clock duration on
+// every grid size. Without this, dense grids (e.g. 40x40) would
+// produce 20+ spiral cells per side and the wipe felt visibly faster
+// than it did on a sparse 16x16 grid even though both took 2.4s.
+const SPIRAL_TARGET_CELLS = 14;
 
 // --- Combat menu ---
 const ACTIONS = ['attack', 'counter', 'run'];
@@ -219,7 +235,6 @@ export default class Rpg extends Engine {
     this._snakeCol = Math.max(2, Math.floor(this.cols / 4));
     this._snakeY = Math.floor(this.rows / 2);
     this._worldX = this._snakeCol;
-    this._startWorldX = this._worldX;
     /** @type {Point[]} World-space snake segments, head first. */
     this._segments = [{ x: this._worldX, y: this._snakeY }];
 
@@ -494,10 +509,6 @@ export default class Rpg extends Engine {
     // resolve on the same cell in the same tick.
     this._checkPickups();
     this._checkEnemyCollision();
-
-    // Score = forward squares moved. Deterministic from world position
-    // so save/reload mid-run would be trivial if we ever wanted it.
-    this.score = this._worldX - this._startWorldX;
   }
 
   _visibleLength() {
@@ -603,6 +614,22 @@ export default class Rpg extends Engine {
     };
   }
 
+  /**
+   * Player attack range scales with food eaten using the same per-food
+   * cadence as the enemy ramp. Returning a fresh object each call (vs.
+   * caching) keeps `_foodEaten` and `_resolveCombatTurn` the only
+   * place damage maths live and lets tests poke `_foodEaten` directly
+   * to verify the ramp.
+   */
+  _scaledPlayerStats() {
+    const f = this._foodEaten;
+    const bonusAtk = Math.floor(f * PLAYER_ATTACK_PER_FOOD);
+    return {
+      attackMin: PLAYER_ATTACK_MIN + bonusAtk,
+      attackMax: PLAYER_ATTACK_MAX + bonusAtk,
+    };
+  }
+
   _trySpawnFood() {
     // Bias slightly inward so food doesn't always appear flush with the
     // right edge alongside fresh enemies.
@@ -655,18 +682,19 @@ export default class Rpg extends Engine {
     // the perpendicular axis so a single wall column doesn't strand
     // the chaser. Enemies still get dragged off-screen left by the
     // scroll, so X-chase keeps mattering -- without it they'd never
-    // close the gap before scrolling past the snake.
+    // close the gap before scrolling past the snake. Enemies that
+    // have slipped behind the snake (dx > 0) keep chasing on Y so
+    // they still look alive (turning toward the snake as they slide
+    // past), but they stop chasing on X so the world-scroll actually
+    // carries them off the left edge instead of clamping them to the
+    // snake's column forever (ENEMY_SPEED > 1 would otherwise let a
+    // behind-enemy out-pace the scroll on the X axis indefinitely).
     for (const e of this._enemies) {
       const dx = this._worldX - e.x;
       const dy = this._snakeY - e.y;
       if (dx === 0 && dy === 0) continue;
-      // Enemy has already slid behind the snake's column (dx > 0 with
-      // our convention: worldX - enemy.x). A chase step here can no
-      // longer trigger combat (the snake is moving away every tick),
-      // so freeze AI and let the world-scroll drag it gracefully off
-      // the left edge instead of jittering uselessly behind the player.
-      if (dx > 0) continue;
-      const stepX = Math.sign(dx);
+      const behind = dx > 0;
+      const stepX = behind ? 0 : Math.sign(dx);
       const stepY = Math.sign(dy);
       const hasX = stepX !== 0;
       const hasY = stepY !== 0;
@@ -727,9 +755,18 @@ export default class Rpg extends Engine {
 
   _onFoodEaten() {
     this._foodEaten += 1;
+    // Score tracks food eaten -- matches the other snake game modes
+    // where a pellet is the unit of progress, rather than raw
+    // distance scrolled (which advances every tick regardless of
+    // skill).
+    this.score = this._foodEaten;
     this._maxHp += 1;
     this._maxLength += 1;
-    this._hp = Math.min(this._maxHp, this._hp + FOOD_HEAL);
+    // Pellets fully restore HP, including the freshly-granted hit
+    // point. The growth ramp is a strict reward instead of a partial
+    // top-up so the player feels their snake getting visibly bigger
+    // and safer with each pickup.
+    this._hp = this._maxHp;
     // An enemy chasing on the snake's row can park itself one cell
     // ahead of the food (its chase step is blocked by the pellet),
     // then collide the very next tick when the snake advances --
@@ -844,28 +881,37 @@ export default class Rpg extends Engine {
     let combatEnded = false;
 
     if (action === 'attack') {
-      const damage = randInt(PLAYER_ATTACK_MIN, PLAYER_ATTACK_MAX);
-      // When the enemy primed Counter the previous turn, the player's
-      // swing has a coin-flip chance of bouncing back. Symmetric with
-      // the enemy-vs-player counter path below.
-      const reflected =
-        enemyWasCountering && Math.random() < COUNTER_REFLECT_CHANCE;
-      if (reflected) {
-        this._hp = Math.max(0, this._hp - damage);
-        // Player anim is first in the queue, so onStart fires almost
-        // immediately -- still defer the floater so the HP bar drop
-        // is visually tied to the lunge contact rather than the
-        // synchronous resolve.
-        this._queueAttackAnim(c, 'player', damage, {
-          reflected: true,
-          defer: true,
-        });
+      // Hit roll first so a miss short-circuits the whole damage/
+      // reflect chain. A whiff still queues the lunge anim (with a
+      // MISS floater) so the turn has a beat the player can read.
+      const hit = Math.random() < HIT_CHANCE;
+      if (!hit) {
+        this._queueMissAnim(c, 'player');
       } else {
-        c.enemy.hp = Math.max(0, c.enemy.hp - damage);
-        // No defer: player anim plays first, so the floater + HP drop
-        // appearing immediately reads as "hit on impact".
-        this._queueAttackAnim(c, 'player', damage);
-        if (c.enemy.hp <= 0) combatEnded = true;
+        const stats = this._scaledPlayerStats();
+        const damage = randInt(stats.attackMin, stats.attackMax);
+        // When the enemy primed Counter the previous turn, the player's
+        // swing has a coin-flip chance of bouncing back. Symmetric with
+        // the enemy-vs-player counter path below.
+        const reflected =
+          enemyWasCountering && Math.random() < COUNTER_REFLECT_CHANCE;
+        if (reflected) {
+          this._hp = Math.max(0, this._hp - damage);
+          // Player anim is first in the queue, so onStart fires almost
+          // immediately -- still defer the floater so the HP bar drop
+          // is visually tied to the lunge contact rather than the
+          // synchronous resolve.
+          this._queueAttackAnim(c, 'player', damage, {
+            reflected: true,
+            defer: true,
+          });
+        } else {
+          c.enemy.hp = Math.max(0, c.enemy.hp - damage);
+          // No defer: player anim plays first, so the floater + HP drop
+          // appearing immediately reads as "hit on impact".
+          this._queueAttackAnim(c, 'player', damage);
+          if (c.enemy.hp <= 0) combatEnded = true;
+        }
       }
     } else if (action === 'counter') {
       c.playerCountering = true;
@@ -895,23 +941,31 @@ export default class Rpg extends Engine {
         });
       }
       if (this._chooseEnemyAction(c) === 'attack') {
-        const damage = randInt(c.enemy.attackMin, c.enemy.attackMax);
-        // When the player primed Counter the previous turn, the
-        // enemy's swing has a coin-flip chance of bouncing back.
-        const reflected =
-          playerWasCountering && Math.random() < COUNTER_REFLECT_CHANCE;
-        if (reflected) {
-          c.enemy.hp = Math.max(0, c.enemy.hp - damage);
-          this._queueAttackAnim(c, 'enemy', damage, {
-            reflected: true,
-            defer: true,
-          });
-          if (c.enemy.hp <= 0) combatEnded = true;
+        const hit = Math.random() < HIT_CHANCE;
+        if (!hit) {
+          // Defer the MISS floater to the lunge's onStart so the
+          // "MISS" pops on impact rather than the instant the
+          // synchronous turn resolves.
+          this._queueMissAnim(c, 'enemy', { defer: true });
         } else {
-          this._hp = Math.max(0, this._hp - damage);
-          // Defer so the HP drop / floater happens when the enemy
-          // lunge contacts, not the instant the player's turn resolves.
-          this._queueAttackAnim(c, 'enemy', damage, { defer: true });
+          const damage = randInt(c.enemy.attackMin, c.enemy.attackMax);
+          // When the player primed Counter the previous turn, the
+          // enemy's swing has a coin-flip chance of bouncing back.
+          const reflected =
+            playerWasCountering && Math.random() < COUNTER_REFLECT_CHANCE;
+          if (reflected) {
+            c.enemy.hp = Math.max(0, c.enemy.hp - damage);
+            this._queueAttackAnim(c, 'enemy', damage, {
+              reflected: true,
+              defer: true,
+            });
+            if (c.enemy.hp <= 0) combatEnded = true;
+          } else {
+            this._hp = Math.max(0, this._hp - damage);
+            // Defer so the HP drop / floater happens when the enemy
+            // lunge contacts, not the instant the player's turn resolves.
+            this._queueAttackAnim(c, 'enemy', damage, { defer: true });
+          }
         }
       } else {
         c.enemyCountering = true;
@@ -1006,6 +1060,32 @@ export default class Rpg extends Engine {
     } else {
       c.animQueue.push(anim);
       this._pushFloater(target, `-${damage}`);
+    }
+  }
+
+  /**
+   * Queue a "whiff" lunge animation for a missed attack. Same shape
+   * and timing as a regular attack lunge so the combat tempo stays
+   * consistent on a miss, but the entry carries `missed: true` and
+   * spawns a MISS text floater on the *target* (no damage, no HP
+   * mutation, no reflect). Anchoring the floater to the target keeps
+   * MISS visually consistent with damage numbers -- both appear over
+   * the actor whose hitbox the swing was aimed at.
+   */
+  _queueMissAnim(c, attacker, { defer = false } = {}) {
+    const target = attacker === 'player' ? 'enemy' : 'player';
+    const anim = {
+      actor: attacker,
+      kind: 'attack',
+      missed: true,
+      durationMs: ATTACK_ANIM_MS,
+    };
+    if (defer) {
+      anim.onStart = () => this._pushFloater(target, 'MISS');
+      c.animQueue.push(anim);
+    } else {
+      c.animQueue.push(anim);
+      this._pushFloater(target, 'MISS');
     }
   }
 
@@ -1274,14 +1354,29 @@ export default class Rpg extends Engine {
       this._dirty = true;
     }
 
-    // HP bars sit centered beneath each sprite. The player bar lags
-    // the actual `_hp` value by `pendingPlayerDamage` until the enemy
-    // lunge anim begins, so the visible drop syncs with the attack
-    // animation rather than the synchronous resolve. The enemy bar
-    // does the same on a reflected counter hit so the bounced damage
-    // lands when the lunge contacts, not when the turn resolves.
-    const barW = Math.min(w * 0.28, spriteSize * 1.4);
-    const barGap = Math.max(cell * 1.0, 18);
+    // HP bars sit on the *opposite* side of each sprite (player's
+    // bar on the far right, enemy's bar on the far left). The enemy
+    // panel hugs the *top* of its sprite's vertical extent and the
+    // player panel hugs the *bottom* of its sprite's extent -- the
+    // two clusters fan apart vertically so the middle of the screen
+    // is left clear for the lunge/counter animations.
+    //
+    // The label is drawn above the bar by `_drawCombatHpBar`, so the
+    // "top-aligned" enemy bar Y has to leave room for the label
+    // above it; the "bottom-aligned" player bar Y just needs its
+    // bottom to land at the sprite's bottom.
+    //
+    // The player bar lags the actual `_hp` value by
+    // `pendingPlayerDamage` until the enemy lunge anim begins, so
+    // the visible drop syncs with the attack animation rather than
+    // the synchronous resolve. The enemy bar does the same on a
+    // reflected counter hit so the bounced damage lands when the
+    // lunge contacts, not when the turn resolves.
+    const { barW, playerBarX, enemyBarX } = geom;
+    const barH = Math.max(14, Math.round(cell * 0.7));
+    const labelFontPx = Math.max(22, Math.round(cell * 1.05));
+    const enemyBarY = geom.enemyBaseY + labelFontPx + 4;
+    const playerBarY = geom.playerBaseY + spriteSize - barH;
     const displayedPlayerHp = Math.min(
       this._maxHp,
       this._hp + (c.pendingPlayerDamage || 0)
@@ -1291,8 +1386,8 @@ export default class Rpg extends Engine {
       c.enemy.hp + (c.pendingEnemyDamage || 0)
     );
     this._drawCombatHpBar(
-      geom.playerCenterX - barW / 2,
-      playerBaseY + spriteSize + barGap,
+      playerBarX,
+      playerBarY,
       barW,
       displayedPlayerHp,
       this._maxHp,
@@ -1301,8 +1396,8 @@ export default class Rpg extends Engine {
       layout
     );
     this._drawCombatHpBar(
-      geom.enemyCenterX - barW / 2,
-      enemyBaseY + spriteSize + barGap,
+      enemyBarX,
+      enemyBarY,
       barW,
       displayedEnemyHp,
       c.enemy.maxHp,
@@ -1316,29 +1411,67 @@ export default class Rpg extends Engine {
   }
 
   /**
-   * Shared geometry for the combat sprites + floating numbers so render,
-   * anim overlay, and floater drift all stay in lockstep when the
-   * canvas resizes mid-fight. The enemy sits in the top-right corner
-   * of the upper combat panel and the player in the bottom-left, so
-   * the two face each other diagonally across the arena. Sprite size
-   * is capped so each HP bar (drawn under its sprite) fits inside the
-   * upper panel without crashing into the menu below.
+   * Shared geometry for the combat sprites + HP panels + floating
+   * numbers so render, anim overlay, and floater drift all stay in
+   * lockstep when the canvas resizes mid-fight. The enemy hugs the
+   * top-right corner of the upper combat panel and the player the
+   * bottom-left, so the two face each other diagonally. HP panels
+   * (label above bar) sit on the *inside* of each sprite -- player
+   * bar right of the player, enemy bar left of the enemy -- using
+   * the freed middle channel that the old "bar below sprite" layout
+   * left empty. Bar width grows to fit the longest possible label
+   * so "ENEMY 999/999" never spills onto the sprite.
    */
   _combatSpriteGeom(layout) {
+    const { ctx } = this;
     const { ox, oy, cell } = layout;
     const w = cell * this.cols;
     const h = cell * this.rows;
-    // Sprites + HP bars share the top 2/3 of the canvas. The bottom
-    // 1/3 belongs to the action menu.
+    // Sprites + HP panels share the top 2/3 of the canvas. The
+    // bottom 1/3 belongs to the action menu.
     const topPanelH = h * (2 / 3);
     const spriteSize = Math.min(w * 0.22, topPanelH * 0.42);
-    // Anchor centers near the corners of the upper panel. Player Y is
-    // chosen so the sprite + HP bar still fits above the menu seam,
-    // enemy Y so the sprite + HP bar still fits below the top border.
-    const playerCenterX = ox + w * 0.22;
-    const enemyCenterX = ox + w * 0.78;
+    const pad = Math.max(4, Math.round(cell * 0.25));
+
+    // Bar width target: capped at ~22% of canvas or ~120% of the
+    // sprite. Then floored at the widest worst-case label so the
+    // text fits inside the bar regardless of how big maxHp grows.
+    // The label font scales with `cell` (same as the floaters do),
+    // so the floor on barW has to use the same scaled font when it
+    // measures -- otherwise on big canvases the label outgrows the
+    // bar after it's been laid out.
+    const enemyMaxHp = this._combat?.enemy?.maxHp ?? 99;
+    const labelFontPx = Math.max(22, Math.round(cell * 1.05));
+    ctx.font = `${labelFontPx}px PublicPixel, monospace`;
+    const playerLabelW = ctx.measureText(
+      `PLAYER ${this._maxHp}/${this._maxHp}`
+    ).width;
+    const enemyLabelW = ctx.measureText(
+      `ENEMY ${enemyMaxHp}/${enemyMaxHp}`
+    ).width;
+    const targetBarW = Math.min(w * 0.22, spriteSize * 1.2);
+    const barW = Math.max(playerLabelW, enemyLabelW, targetBarW) + 4;
+
+    // Player sprite hugs the left edge; its HP panel sits on the
+    // *opposite* (right) side of the playfield. Enemy sprite mirrors
+    // on the right edge with its panel on the left. This swaps the
+    // two halves visually -- you read your own HP across from your
+    // sprite -- and leaves a wide breathing channel between each
+    // sprite and its bar so neither crowds the other.
+    const playerCenterX = ox + spriteSize / 2 + pad * 2;
+    const enemyCenterX = ox + w - spriteSize / 2 - pad * 2;
     const playerCenterY = oy + topPanelH * 0.66;
     const enemyCenterY = oy + topPanelH * 0.24;
+    // Bars sit on the opposite side of the playfield from their
+    // sprite but are pulled *inboard* from the playfield edge by
+    // `barEdgePad` so they read as paired with their sprite rather
+    // than floating against the wall. Tuned to ~0.7 sprite-widths /
+    // ~2.5 cells -- close enough to the wall to put real distance
+    // between the bar and the opposite sprite.
+    const barEdgePad = Math.max(spriteSize * 0.7, cell * 2.5);
+    const playerBarX = ox + w - barEdgePad - barW;
+    const enemyBarX = ox + barEdgePad;
+
     return {
       spriteSize,
       playerCenterX,
@@ -1349,6 +1482,9 @@ export default class Rpg extends Engine {
       playerBaseY: playerCenterY - spriteSize / 2,
       enemyBaseX: enemyCenterX - spriteSize / 2,
       enemyBaseY: enemyCenterY - spriteSize / 2,
+      barW,
+      playerBarX,
+      enemyBarX,
     };
   }
 
@@ -1392,6 +1528,11 @@ export default class Rpg extends Engine {
     const cs = spriteSize / SPRITE_RES;
 
     if (anim.kind === 'attack') {
+      // Missed lunges run the same arc as a hit but never connect, so
+      // skip the contact flash entirely. The MISS floater spawned on
+      // the attacker is the only visual cue, which keeps a whiff
+      // visibly distinct from a successful strike.
+      if (anim.missed) return;
       // Hit flash on the target sprite for the contact half of the
       // lunge. Opacity peaks at impact (progress=0.5) and fades to 0
       // by the time the attacker is back at rest. Painted as a red
@@ -1559,7 +1700,10 @@ export default class Rpg extends Engine {
     ctx.fillStyle = color;
     ctx.fillRect(x, y, w * ratio, barH);
 
-    ctx.font = SCORE_FONT;
+    // Label font scales with cell so it grows with the bar on big
+    // canvases. Floor matches _combatSpriteGeom's measurement font.
+    const labelFontPx = Math.max(22, Math.round(cell * 1.05));
+    ctx.font = `${labelFontPx}px PublicPixel, monospace`;
     ctx.textBaseline = 'bottom';
     ctx.textAlign = 'left';
     ctx.fillStyle = color;
@@ -1624,7 +1768,9 @@ export default class Rpg extends Engine {
       // top of the panel before the player can read it.
       const drift = geom.spriteSize * 0.7 * (1 - (1 - t) * (1 - t));
       ctx.globalAlpha = Math.max(0, 1 - t);
-      ctx.fillStyle = FOOD;
+      // MISS uses the score-bar gold so a whiff reads as "non-damage"
+      // at a glance; hit floaters keep the red damage tint.
+      ctx.fillStyle = f.text === 'MISS' ? SCORE_COLOR : FOOD;
       ctx.shadowBlur = 8;
       ctx.fillText(f.text, cx, top - drift);
       // Keep redrawing while any floater is alive.
@@ -1714,13 +1860,17 @@ export default class Rpg extends Engine {
     const layout = this._gridLayout();
     const { ox, oy } = layout;
     // The spiral fills only the playfield box (the bordered game
-    // area), not the entire canvas. Cells inherit their size from the
-    // play-grid but are scaled up so the spiral has visibly chunky
-    // steps the eye can track one at a time instead of blurring into
-    // a smooth radial fill.
+    // area), not the entire canvas. Cell size is derived from the
+    // playfield's shorter side and `SPIRAL_TARGET_CELLS` so the wipe
+    // shows the same number of discrete steps regardless of how
+    // dense the play grid is -- a 16x16 grid and a 40x40 grid wipe
+    // at the same visible cadence over the same 2.4s window.
     const fieldW = layout.cell * this.cols;
     const fieldH = layout.cell * this.rows;
-    const cell = Math.max(8, Math.round(layout.cell * SPIRAL_CELL_SCALE));
+    const cell = Math.max(
+      8,
+      Math.round(Math.min(fieldW, fieldH) / SPIRAL_TARGET_CELLS)
+    );
     const cols = Math.ceil(fieldW / cell);
     const rows = Math.ceil(fieldH / cell);
     // Center the spiral grid inside the playfield so the leftover

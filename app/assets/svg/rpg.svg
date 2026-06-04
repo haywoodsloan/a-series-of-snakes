@@ -81,6 +81,22 @@
        keeps food at least one cell away from walls). -->
   <rect class="food" x="59.6" y="59.6" width="9.6" height="9.6" />
 
+  <!-- Motion lines trailing the enemy, indicating it's charging left
+       toward the snake. Mirrors the chase preview's food trail: same
+       width (8.4), stroke (1.6), opacity, and 1.2 gap off the rect --
+       just flipped to the enemy's right since the enemy moves left. -->
+  <g
+    class="enemy"
+    stroke-width="1.6"
+    stroke-linecap="round"
+    fill="none"
+    opacity="0.6"
+  >
+    <line x1="89.6" y1="32.6" x2="98" y2="32.6" />
+    <line x1="89.6" y1="35.6" x2="98" y2="35.6" />
+    <line x1="89.6" y1="38.6" x2="98" y2="38.6" />
+  </g>
+
   <!-- Enemy approaching from the right at snake-head elevation. -->
   <rect class="enemy" x="78.8" y="30.8" width="9.6" height="9.6" />
 </svg>

@@ -11,6 +11,11 @@ import Engine from '~/games/engine.js';
 import { settings } from '~/utils/settings.js';
 
 class FakeContext2D {
+  // Track the most recent `font` assignment so `measureText` can
+  // return a width that scales with the requested pixel size. Real
+  // canvas reads `ctx.font` back as a CSS string; we only need the
+  // px component to estimate glyph advance.
+  _font = '10px monospace';
   fillRect() {}
   clearRect() {}
   fillText() {}
@@ -22,6 +27,14 @@ class FakeContext2D {
   restore() {}
   beginPath() {}
   arc() {}
+  // Rough monospace estimate -- good enough for layout tests that
+  // need to know whether text fits inside a bar or panel. PublicPixel
+  // (the app's display font) averages ~0.55 of font height per glyph.
+  measureText(text = '') {
+    const match = /(\d+(?:\.\d+)?)px/.exec(this._font);
+    const fontPx = match ? parseFloat(match[1]) : 10;
+    return { width: String(text).length * fontPx * 0.55 };
+  }
   // Setter-only properties on the real CanvasRenderingContext2D --
   // declared explicitly so test code can spy on `ctx.fillStyle = ...`
   // assignments without throwing.
@@ -31,7 +44,9 @@ class FakeContext2D {
   set shadowColor(_) {}
   set shadowBlur(_) {}
   set globalAlpha(_) {}
-  set font(_) {}
+  set font(v) {
+    this._font = String(v);
+  }
   set textAlign(_) {}
   set textBaseline(_) {}
 }
