@@ -6,8 +6,8 @@
 
 /**
  * Override Math.random with a deterministic Park-Miller LCG so the
- * app's random spawn positions, snow-animation timings, etc. reproduce
- * identically every run. Call from `test.beforeEach` before any
+ * app's random spawn positions reproduce identically every run.
+ * Call from `test.beforeEach` before any
  * `page.goto`. The override is installed via `addInitScript`, so it
  * runs on every new document the test loads.
  *

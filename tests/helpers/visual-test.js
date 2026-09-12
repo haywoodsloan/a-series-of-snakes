@@ -1,7 +1,7 @@
 // Custom Playwright `test` export for the visual regression suite.
 // Wraps the default page fixture so every visual test gets:
-//   1. a deterministic `Math.random` seed (spawn positions, snow
-//      timings, etc. reproduce identically every run)
+//   1. a deterministic `Math.random` seed (spawn positions reproduce
+//      identically every run)
 //   2. an extended `page.goto` that also waits for `document.fonts.ready`
 //      -- text metrics jitter while webfonts are still loading, so every
 //      visual assertion needs them resolved before snapping.

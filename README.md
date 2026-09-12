@@ -75,7 +75,7 @@ app/                           Nuxt v4 srcDir (application code)
     highscores.js              localStorage leaderboards
     settings.js                Reactive settings, also localStorage
   assets/
-    css/crt.scss               Scanlines, hsync jitter, snow, glow
+    css/crt.scss               Static scanlines, vignette, glow
     image/                     Build-processed images (e.g. CRT noise tile)
     svg/                       Preview tiles for the picker
 public/                        Static assets served at the site root
@@ -201,11 +201,16 @@ to settings changes.
 
 ## Accessibility and motion
 
-The CRT effect includes flicker animations along with periodic snow
-and hsync jitter. Clients that report `prefers-reduced-motion: reduce`
-receive near-zero-duration variants of these animations, which also
-stabilizes Playwright's element-stability checks. A skip link and a
-route announcer are wired in [app.vue](app.vue).
+The CRT styling is static for everyone: scanlines, texture, glow, and
+vignette remain, but there is no decorative screen flicker, jitter,
+moving TV static, or flashing score/initials UI. No OS preference or
+settings change is required to stop those effects.
+
+Clients that report `prefers-reduced-motion: reduce` also have CSS
+animations and hover/focus transitions disabled outright, rather than
+compressed into brief flashes. Gameplay still moves and RPG combat
+still uses visual effects; this is not a guarantee of photosensitivity
+safety. A skip link and a route announcer are wired in [app.vue](app/app.vue).
 
 ## License
 

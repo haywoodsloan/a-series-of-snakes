@@ -1,7 +1,6 @@
 import { expect, test } from '../helpers/visual-test.js';
 
-// Home page game selector. Per-cell snow timings are deterministic
-// because the visual-test fixture seeds Math.random for every page.
+// Home page game selector with static CRT decoration.
 
 test('home page', async ({ page }) => {
   await page.goto('/');

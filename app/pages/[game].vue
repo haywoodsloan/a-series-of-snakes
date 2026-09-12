@@ -419,23 +419,12 @@ onBeforeUnmount(destroyGame);
     text-shadow:
       0 0 0.3rem v-bind(FG),
       0 0 0.6rem v-bind(FG);
-    animation: row-flash 0.6s steps(1) infinite;
 
     .rank,
     .score {
       color: #fff;
       opacity: 1;
     }
-  }
-}
-
-@keyframes row-flash {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
   }
 }
 
@@ -506,28 +495,15 @@ onBeforeUnmount(destroyGame);
         0 0 0.6rem rgba(212, 255, 212, 0.5),
         inset 0 0 0.5rem rgba(212, 255, 212, 0.25);
 
-      // Blink only the glyph (the inner <i>) for the slot still waiting
-      // for a character, so the box stays steady but the placeholder
-      // underscore visibly pulses.
       i {
         font-style: normal;
         display: inline-block;
       }
 
-      &.pending i {
-        animation: caret-blink 0.5s steps(1) infinite;
+      &.pending {
+        border-color: v-bind(SCORE);
       }
     }
-  }
-}
-
-@keyframes caret-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
   }
 }
 
