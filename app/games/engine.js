@@ -43,7 +43,17 @@ const KEY_MAP = {
   KeyD: { kind: 'wasd', dir: 'right' },
 };
 
-export const SCORE_FONT = '28px PublicPixel, monospace';
+// Minimum pointer travel (in CSS pixels) for a touch gesture to register
+// as a swipe. Shorter gestures are treated as taps and steered by the
+// region of the canvas they land in. Kept in CSS px so the threshold is
+// independent of device pixel ratio and canvas backing-store size.
+const SWIPE_MIN_DISTANCE = 24;
+
+// Base HUD font height in CSS pixels (at DPR 1). Scaled by the device
+// pixel ratio at draw time (see `_hudFont`) so the HUD keeps a constant
+// on-screen size on high-DPR phones instead of shrinking, and used to
+// decide whether the HUD row fits in the letterbox above the playfield.
+const SCORE_FONT_PX = 28;
 
 /**
  * Shared speed-ramp tuning used by the default `onEat` so every game with
@@ -69,7 +79,7 @@ const WALL_CORE_INSET = 0.22; // Wall core padding from cell edges (fraction of 
 const WALL_SPIKE_TIP = 0.16; // Spike protrusion outside the core (fraction of cell).
 const WALL_SPIKES_PER_SIDE = 4; // Triangle count along each unmerged wall edge.
 const GRID_LINE_ALPHA = 0.12; // Opacity of optional grid overlay.
-const GAMEOVER_OVERLAY_ALPHA = 0.6; // Dim layer drawn over the playfield on game over.
+const GAMEOVER_OVERLAY_ALPHA = 0.6; // Dim layer drawn over the square playfield on game over.
 
 // randomEmptyCell tuning: cap retries so almost-full boards fall back to
 // a deterministic scan instead of spinning.
@@ -184,9 +194,22 @@ export default class Engine {
     this._gridPath = null;
 
     // Input handling. Subclasses register callbacks via `onInput`.
-    /** @type {Set<(info: { kind: InputKind, dir: Direction, event: KeyboardEvent }) => void>} */
+    /** @type {Set<(info: { kind: InputKind, dir: Direction, event: KeyboardEvent | TouchEvent }) => void>} */
     this._inputHandlers = new Set();
     this._onKeyDown = this._onKeyDown.bind(this);
+
+    // One finger owns a gesture. Swipes steer while moving; only gestures
+    // that never became swipes produce an edge tap on release.
+    /** @type {{ x: number, y: number, identifier: number, dir: Direction | null } | null} */
+    this._touchStart = null;
+    this._onTouchStart = this._onTouchStart.bind(this);
+    this._onTouchMove = this._onTouchMove.bind(this);
+    this._onTouchEnd = this._onTouchEnd.bind(this);
+    this._onTouchCancel = this._onTouchCancel.bind(this);
+    this._clearInput = this._clearInput.bind(this);
+    this._onVisibilityChange = () => {
+      if (document.hidden) this._clearInput();
+    };
 
     // Resize handling: keep canvas backing-store in sync with its CSS size,
     // accounting for device pixel ratio. Defer the actual resize+redraw to
@@ -218,6 +241,9 @@ export default class Engine {
    */
   _syncCanvasSize() {
     const dpr = window.devicePixelRatio || 1;
+    // Cache the ratio so the HUD font can match the canvas's backing-store
+    // scale without re-reading it every frame (see `_hudFont`).
+    this._dpr = dpr;
     const rect = this.canvas.getBoundingClientRect();
     const w = Math.max(1, Math.round(rect.width * dpr));
     const h = Math.max(1, Math.round(rect.height * dpr));
@@ -241,6 +267,22 @@ export default class Engine {
     this._tickAccum = 0;
 
     window.addEventListener('keydown', this._onKeyDown);
+    window.addEventListener('blur', this._clearInput);
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
+    // Touch listeners live on the canvas so only playfield gestures steer
+    // (taps on the header/settings are untouched). `passive: false` lets
+    // the handlers call `preventDefault()` to suppress scroll, zoom, and
+    // synthesized clicks while the player is steering.
+    this.canvas.addEventListener('touchstart', this._onTouchStart, {
+      passive: false,
+    });
+    this.canvas.addEventListener('touchmove', this._onTouchMove, {
+      passive: false,
+    });
+    this.canvas.addEventListener('touchend', this._onTouchEnd, {
+      passive: false,
+    });
+    this.canvas.addEventListener('touchcancel', this._onTouchCancel);
     this._resizeObserver.observe(this.canvas);
 
     const loop = (now) => {
@@ -273,6 +315,13 @@ export default class Engine {
     this._running = false;
     cancelAnimationFrame(this._raf);
     window.removeEventListener('keydown', this._onKeyDown);
+    window.removeEventListener('blur', this._clearInput);
+    document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    this.canvas.removeEventListener('touchstart', this._onTouchStart);
+    this.canvas.removeEventListener('touchmove', this._onTouchMove);
+    this.canvas.removeEventListener('touchend', this._onTouchEnd);
+    this.canvas.removeEventListener('touchcancel', this._onTouchCancel);
+    this._clearInput();
     // Keep the ResizeObserver attached so the post-game canvas (the dim
     // overlay over the playfield) still repaints if the viewport changes.
   }
@@ -853,8 +902,9 @@ export default class Engine {
   // ---------- Input ----------
 
   /**
-   * Register a callback for keyboard input. Returns an unsubscribe fn.
-   * @param {(info: { kind: InputKind, dir: Direction, event: KeyboardEvent }) => void} fn
+   * Register a callback for directional input (keyboard or touch).
+   * Returns an unsubscribe fn.
+   * @param {(info: { kind: InputKind, dir: Direction, event: KeyboardEvent | TouchEvent }) => void} fn
    */
   onInput(fn) {
     this._inputHandlers.add(fn);
@@ -871,6 +921,114 @@ export default class Engine {
     if (event.repeat) return;
     const info = { kind: mapped.kind, dir: mapped.dir, event };
     for (const fn of this._inputHandlers) fn(info);
+  }
+
+  /** @param {TouchEvent} event */
+  _onTouchStart(event) {
+    if (this.gameOver) return;
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+    event.preventDefault();
+    if (this._touchStart) return;
+    this._touchStart = {
+      x: touch.clientX,
+      y: touch.clientY,
+      identifier: touch.identifier ?? 0,
+      dir: null,
+    };
+  }
+
+  /** @param {TouchEvent} event */
+  _onTouchMove(event) {
+    const start = this._touchStart;
+    if (!start) return;
+    const touch = Array.from(event.changedTouches ?? []).find(
+      (t) => (t.identifier ?? 0) === start.identifier
+    );
+    if (!touch) return;
+    event.preventDefault();
+    const end = { x: touch.clientX, y: touch.clientY };
+    if (Math.hypot(end.x - start.x, end.y - start.y) < SWIPE_MIN_DISTANCE) {
+      return;
+    }
+    const dir = this._resolveTouchDirection(start, end);
+    start.x = end.x;
+    start.y = end.y;
+    // Repeated movement must not displace a buffered perpendicular turn.
+    if (dir === start.dir) return;
+    start.dir = dir;
+    const info = { kind: 'touch', dir, event };
+    for (const fn of this._inputHandlers) fn(info);
+  }
+
+  /**
+   * Resolve a completed touch gesture to a direction and dispatch it
+   * through the same handler set as keyboard input, tagged with the
+   * `'touch'` kind. No-op when there was no matching `touchstart` or the
+   * gesture can't be resolved.
+   * @param {TouchEvent} event
+   */
+  _onTouchEnd(event) {
+    const start = this._touchStart;
+    if (!start) return;
+    const touch = Array.from(event.changedTouches ?? []).find(
+      (t) => (t.identifier ?? 0) === start.identifier
+    );
+    if (!touch) return;
+    this._touchStart = null;
+    event.preventDefault();
+    if (start.dir) return;
+    const dir = this._resolveTouchDirection(start, {
+      x: touch.clientX,
+      y: touch.clientY,
+    });
+    if (!dir) return;
+    const info = { kind: 'touch', dir, event };
+    for (const fn of this._inputHandlers) fn(info);
+  }
+
+  /** @param {TouchEvent} event */
+  _onTouchCancel(event) {
+    if (
+      Array.from(event.changedTouches ?? []).some(
+        (t) => (t.identifier ?? 0) === this._touchStart?.identifier
+      )
+    ) {
+      this._touchStart = null;
+    }
+  }
+
+  _clearInput() {
+    this._touchStart = null;
+  }
+
+  /**
+   * Map a touch gesture to a direction. A gesture that travelled at least
+   * `SWIPE_MIN_DISTANCE` is a swipe, steered by the dominant axis of the
+   * movement vector. A shorter gesture is a tap, steered by which edge
+   * region (top/bottom/left/right) of the canvas it landed in -- the two
+   * diagonals through the center split the canvas into four triangles.
+   * Normalize each axis so a tall phone canvas has equally usable regions.
+   * Canvas y grows
+   * downward, so a positive y is down.
+   * @param {{ x: number, y: number }} start Gesture start, CSS px.
+   * @param {{ x: number, y: number }} end   Gesture end, CSS px.
+   * @returns {Direction}
+   */
+  _resolveTouchDirection(start, end) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    if (Math.hypot(dx, dy) >= SWIPE_MIN_DISTANCE) {
+      if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'right' : 'left';
+      return dy > 0 ? 'down' : 'up';
+    }
+    const rect = this.canvas.getBoundingClientRect();
+    const offsetX = (end.x - rect.left) / rect.width - 0.5;
+    const offsetY = (end.y - rect.top) / rect.height - 0.5;
+    if (Math.abs(offsetX) >= Math.abs(offsetY)) {
+      return offsetX > 0 ? 'right' : 'left';
+    }
+    return offsetY > 0 ? 'down' : 'up';
   }
 
   /**
@@ -993,7 +1151,7 @@ export default class Engine {
     this._drawFood(layout);
     this._drawSnakes(layout);
     this._drawScore(layout);
-    if (this.gameOver) this._drawGameOver(layout, w, h);
+    if (this.gameOver) this._drawGameOver();
   }
 
   /**
@@ -1281,30 +1439,74 @@ export default class Engine {
     }
   }
 
+  /**
+   * HUD font size in backing-store pixels. The 2D context draws in
+   * backing-store pixels (the canvas is sized CSS x DPR with no context
+   * scale), so a fixed pixel font shrinks on high-DPR phones; scaling by
+   * the device pixel ratio keeps a constant on-screen size.
+   * @returns {number}
+   */
+  _hudFontPx() {
+    return Math.round(SCORE_FONT_PX * (this._dpr || 1));
+  }
+
+  /** HUD font shorthand string, DPR-scaled (see `_hudFontPx`). */
+  _hudFont() {
+    return `${this._hudFontPx()}px PublicPixel, monospace`;
+  }
+
+  /**
+   * Vertical placement for the top HUD row (SCORE / HI plus any per-game
+   * addition such as the tunnels counter). When the playfield is
+   * letterboxed vertically -- portrait / mobile, where `oy` leaves a top
+   * margin -- the HUD sits in that margin just above the field so it never
+   * covers the play area. When the field is flush to the top edge
+   * (landscape / desktop), the HUD sits just inside the top edge as before.
+   * @param {{ oy: number, cell: number }} layout
+   * @returns {{ y: number, baseline: CanvasTextBaseline, pad: number }}
+   */
+  _hudRow({ oy, cell }) {
+    const pad = Math.max(4, Math.round(cell * 0.25));
+    // Enough top margin to seat the text with a gap above and below it?
+    if (oy >= this._hudFontPx() + pad * 2) {
+      return { y: oy - pad, baseline: 'bottom', pad };
+    }
+    return { y: oy + pad, baseline: 'top', pad };
+  }
+
   _drawScore({ ox, oy, cell }) {
     const { ctx } = this;
-    const pad = Math.max(4, Math.round(cell * 0.25));
     const w = cell * this.cols;
-    ctx.font = SCORE_FONT;
-    ctx.textBaseline = 'top';
+    const { y, baseline, pad } = this._hudRow({ oy, cell });
+    ctx.font = this._hudFont();
+    ctx.textBaseline = baseline;
     ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
     ctx.shadowBlur = 6;
 
     // SCORE in the top-left, HI mirrored to the top-right.
     ctx.textAlign = 'left';
     ctx.fillStyle = SCORE_COLOR;
-    ctx.fillText(`SCORE ${this.score}`, ox + pad, oy + pad);
+    ctx.fillText(`SCORE ${this.score}`, ox + pad, y);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = HIGH_COLOR;
-    ctx.fillText(`HI ${this.highScore}`, ox + w - pad, oy + pad);
+    ctx.fillText(`HI ${this.highScore}`, ox + w - pad, y);
 
     ctx.textAlign = 'start';
     ctx.shadowBlur = 0;
   }
 
-  _drawGameOver({ ox, oy }, w, h) {
+  /**
+   * Dim the square playfield so the DOM game-over screen (GAME OVER text +
+   * scoreboard, rendered in pages/[game].vue) stays readable over the
+   * frozen final frame. Confined to the field itself -- the letterboxed
+   * margins (and any HUD drawn in them) stay undimmed.
+   */
+  _drawGameOver() {
     const { ctx } = this;
+    const { ox, oy, cell } = this._gridLayout();
+    const w = cell * this.cols;
+    const h = cell * this.rows;
     ctx.fillStyle = `rgba(0, 0, 0, ${GAMEOVER_OVERLAY_ALPHA})`;
     ctx.fillRect(ox, oy, w, h);
   }

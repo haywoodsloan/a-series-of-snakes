@@ -43,7 +43,7 @@ declare type Wall = {
 
 // ---------- Engine: input + collisions ----------
 
-declare type InputKind = 'wasd' | 'arrows';
+declare type InputKind = 'wasd' | 'arrows' | 'touch';
 
 declare type CollisionType = 'self' | 'snake' | 'wall';
 

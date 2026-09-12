@@ -4,6 +4,7 @@ import Duo from '~/games/duo.js';
 import {
   createEngine,
   dispatchKey,
+  dispatchTouch,
   setupEngineTest,
 } from '../../helpers/engine.js';
 
@@ -54,6 +55,15 @@ describe('Duo', () => {
     game.stop();
     expect(game._startedArrows).toBe(true);
     expect(game._startedWasd).toBe(false);
+  });
+
+  it('touch input starts only the primary (wasd) snake', () => {
+    const game = createEngine(Duo);
+    game.start();
+    dispatchTouch(game.canvas, { x: 370, y: 200 }); // tap right
+    game.stop();
+    expect(game._startedWasd).toBe(true);
+    expect(game._startedArrows).toBe(false);
   });
 
   it('update() is a no-op while both snakes are idle', () => {

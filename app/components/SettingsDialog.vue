@@ -457,4 +457,67 @@ watch(open, async (isOpen) => {
     transform: scale(0.96);
   }
 }
+
+// ---------- Mobile / small-screen layout ----------
+// The two-column rows have an intrinsic min-content width (label + gap +
+// stepper) that a desktop-sized font blows past a phone screen, and an
+// `auto auto` grid can't shrink below it -- so shrink the type, value
+// column, gaps, and padding together until the panel fits ~360px.
+@media (max-width: 960px) {
+  .settings-panel {
+    --settings-value-width: 7ch;
+    max-width: 92vw;
+    padding: 1.5rem 1.25rem;
+    gap: 1rem;
+  }
+
+  .settings-title {
+    font-size: 1.4rem;
+  }
+
+  .settings-rows {
+    column-gap: 1rem;
+    row-gap: 1rem;
+  }
+
+  .settings-label {
+    font-size: 1rem;
+  }
+
+  .settings-control {
+    font-size: 1rem;
+
+    .step,
+    .toggle {
+      font-size: 1rem;
+    }
+  }
+
+  .settings-close {
+    font-size: 1.2rem;
+  }
+}
+
+// Narrow phones: shrink the type another step so the labels fit on one
+// line and the panel clears ~320-360px screens comfortably.
+@media (max-width: 600px) {
+  .settings-panel {
+    padding: 1.25rem 1rem;
+  }
+
+  .settings-title {
+    font-size: 1.25rem;
+  }
+
+  .settings-rows {
+    column-gap: 0.75rem;
+  }
+
+  .settings-label,
+  .settings-control,
+  .settings-control .step,
+  .settings-control .toggle {
+    font-size: 0.9rem;
+  }
+}
 </style>

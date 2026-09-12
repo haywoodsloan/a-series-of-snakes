@@ -6,6 +6,7 @@ import {
   captureRAF,
   createEngine,
   dispatchKey,
+  dispatchTouch,
   makeCanvasRect,
   setupEngineTest,
 } from '../helpers/engine.js';
@@ -325,6 +326,71 @@ describe('Engine: keyboard input', () => {
   });
 });
 
+describe('Engine: touch input', () => {
+  // installCanvasStubs pins the canvas rect to 400x400 at the origin, so
+  // the center is (200, 200) and each edge region is 200px away.
+  it('routes taps to the canvas edge region and tags them touch', () => {
+    const engine = createEngine();
+    const handler = vi.fn();
+    engine.onInput(handler);
+    engine.start();
+
+    dispatchTouch(engine.canvas, { x: 200, y: 30 }); // top -> up
+    dispatchTouch(engine.canvas, { x: 200, y: 370 }); // bottom -> down
+    dispatchTouch(engine.canvas, { x: 30, y: 200 }); // left -> left
+    dispatchTouch(engine.canvas, { x: 370, y: 200 }); // right -> right
+
+    engine.stop();
+    expect(handler.mock.calls.map((c) => c[0].dir)).toEqual([
+      'up',
+      'down',
+      'left',
+      'right',
+    ]);
+    expect(handler.mock.calls.every((c) => c[0].kind === 'touch')).toBe(true);
+  });
+
+  it('routes swipes by direction regardless of where they start', () => {
+    const engine = createEngine();
+    const handler = vi.fn();
+    engine.onInput(handler);
+    engine.start();
+
+    // Swipe up starting deep in the bottom region -> still 'up'.
+    dispatchTouch(engine.canvas, { x: 200, y: 360 }, { x: 200, y: 250 });
+    // Swipe right starting in the left region -> still 'right'.
+    dispatchTouch(engine.canvas, { x: 40, y: 200 }, { x: 150, y: 210 });
+
+    engine.stop();
+    expect(handler.mock.calls.map((c) => c[0].dir)).toEqual(['up', 'right']);
+  });
+
+  it('ignores a touchend with no preceding touchstart', () => {
+    const engine = createEngine();
+    const handler = vi.fn();
+    engine.onInput(handler);
+    engine.start();
+
+    const event = new Event('touchend', { cancelable: true });
+    event.changedTouches = [{ clientX: 30, clientY: 200 }];
+    engine.canvas.dispatchEvent(event);
+
+    engine.stop();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('stops routing touches after stop()', () => {
+    const engine = createEngine();
+    const handler = vi.fn();
+    engine.onInput(handler);
+    engine.start();
+    engine.stop();
+
+    dispatchTouch(engine.canvas, { x: 200, y: 30 });
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
 describe('Engine: high score', () => {
   it('submitHighScore persists the entry and updates the cached top', () => {
     const engine = createEngine();
@@ -507,6 +573,79 @@ describe('Engine: input-driven early tick', () => {
     engine.setDirection(snake, 'up');
 
     expect(snake.segments.length).toBeGreaterThanOrEqual(lenBefore);
+  });
+});
+
+describe('Engine: game-over dim', () => {
+  // A non-square grid (10x5) letterboxes the playfield inside the square
+  // 400x400 test canvas, so a playfield-only dim is distinguishable from a
+  // full-canvas one.
+  const rectCount = (calls, x, y, w, h) =>
+    calls.filter(([a, b, c, d]) => a === x && b === y && c === w && d === h)
+      .length;
+
+  it('confines the game-over dim to the square playfield, never the canvas', () => {
+    const engine = createEngine(Engine, { cols: 10, rows: 5 });
+    const { ox, oy, cell } = engine._gridLayout();
+    const w = cell * 10;
+    const h = cell * 5;
+    const { width, height } = engine.canvas;
+    const fillRectSpy = vi.spyOn(engine.ctx, 'fillRect');
+
+    engine.gameOver = true;
+    engine.render();
+
+    // The playfield rect is filled; the full canvas (letterbox) never is.
+    expect(
+      rectCount(fillRectSpy.mock.calls, ox, oy, w, h)
+    ).toBeGreaterThanOrEqual(1);
+    expect(rectCount(fillRectSpy.mock.calls, 0, 0, width, height)).toBe(0);
+  });
+
+  it('adds exactly one extra playfield fill (the dim) on game over', () => {
+    const engine = createEngine(Engine, { cols: 10, rows: 5 });
+    const { ox, oy, cell } = engine._gridLayout();
+    const w = cell * 10;
+    const h = cell * 5;
+    const fillRectSpy = vi.spyOn(engine.ctx, 'fillRect');
+
+    engine.render();
+    const playing = rectCount(fillRectSpy.mock.calls, ox, oy, w, h);
+
+    fillRectSpy.mockClear();
+    engine.gameOver = true;
+    engine.render();
+    const over = rectCount(fillRectSpy.mock.calls, ox, oy, w, h);
+
+    expect(over).toBe(playing + 1);
+  });
+});
+
+describe('Engine: HUD placement', () => {
+  it('places the HUD above the field when letterboxed, inside when flush', () => {
+    const engine = createEngine();
+
+    // Large top margin (portrait / mobile): HUD sits above the field.
+    const above = engine._hudRow({ oy: 180, cell: 13 });
+    expect(above.baseline).toBe('bottom');
+    expect(above.y).toBeLessThan(180);
+
+    // Field flush to the top edge (landscape / desktop): HUD sits inside.
+    const inside = engine._hudRow({ oy: 0, cell: 13 });
+    expect(inside.baseline).toBe('top');
+    expect(inside.y).toBeGreaterThan(0);
+  });
+
+  it('scales the HUD font with the device pixel ratio', () => {
+    const engine = createEngine();
+
+    // At DPR 1 the HUD is the base size (matching the desktop baseline)...
+    engine._dpr = 1;
+    expect(engine._hudFont()).toBe('28px PublicPixel, monospace');
+
+    // ...and grows with the ratio so it isn't tiny on high-DPR phones.
+    engine._dpr = 3;
+    expect(engine._hudFont()).toBe('84px PublicPixel, monospace');
   });
 });
 

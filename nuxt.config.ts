@@ -31,6 +31,12 @@ export default defineNuxtConfig({
     buildAssetsDir: '/_nuxt/',
     head: {
       title: 'A Series of Snakes',
+      meta: [
+        // Opt into responsive layout on phones. Without this, mobile
+        // browsers assume a ~980px layout viewport and render the whole
+        // UI zoomed out and unusable.
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      ],
       // SVG favicon (snake from the chase preview). Modern browsers
       // prefer the SVG; the legacy .ico stays as a fallback. Both
       // hrefs respect the active baseURL so the local preview build

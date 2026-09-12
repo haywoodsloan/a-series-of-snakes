@@ -1,6 +1,6 @@
 <template>
-  <div class="selector">
-    <div class="grid">
+  <div ref="selectorRef" class="selector">
+    <div ref="gridRef" class="grid">
       <template
         v-for="(cell, i) in pageCells"
         :key="cell ? cell.name : `e-${i}`"
@@ -30,7 +30,7 @@
         </span>
       </template>
     </div>
-    <div class="controls">
+    <div ref="controlsRef" class="controls">
       <button
         class="prev"
         aria-label="Previous"
@@ -55,9 +55,15 @@
 import games from '~/games/index.js';
 import { FG } from '~/utils/colors.js';
 
-const ROWS = 3;
-const COLS = 4;
-const PAGE_SIZE = ROWS * COLS;
+// The grid tops out at a 4x3 page on desktop. On narrow screens it drops
+// to fewer columns and the page shrinks to however many whole rows fit
+// the viewport (see `measurePageSize`) so the picker never needs to
+// scroll -- the prev/next controls page through the rest.
+const DEFAULT_PAGE_SIZE = 12;
+// Below this width the grid uses fewer columns and a measured page size;
+// at or above it, the single centered page is kept. Matches the column
+// breakpoints in <style>.
+const MOBILE_QUERY = '(max-width: 960px)';
 
 // Snow animation timing per preview cell.
 const SNOW_MAX_DELAY = 5; // seconds; randomized negative offset upper bound
@@ -76,17 +82,26 @@ const displayGames = games.map((g) => ({
   label: g.name ? g.name.toUpperCase() : g.name,
   to: `/${g.name}`,
 }));
-const PAGE_COUNT = Math.max(1, Math.ceil(displayGames.length / PAGE_SIZE));
+
+const selectorRef = ref(null);
+const gridRef = ref(null);
+const controlsRef = ref(null);
 
 const page = ref(0);
-const pageCount = PAGE_COUNT;
+const pageSize = ref(DEFAULT_PAGE_SIZE);
 
-// Flat array of PAGE_SIZE cells -- avoids the nested-array allocation that
-// the table layout previously required on every page change.
+const pageCount = computed(() =>
+  Math.max(1, Math.ceil(displayGames.length / pageSize.value))
+);
+
+// Flat array of `pageSize` cells (nulls pad the final page) -- avoids the
+// nested-array allocation that the table layout previously required on
+// every page change.
 const pageCells = computed(() => {
-  const start = page.value * PAGE_SIZE;
-  const out = new Array(PAGE_SIZE);
-  for (let i = 0; i < PAGE_SIZE; i++) {
+  const size = pageSize.value;
+  const start = page.value * size;
+  const out = new Array(size);
+  for (let i = 0; i < size; i++) {
     out[i] = displayGames[start + i] ?? null;
   }
   return out;
@@ -94,13 +109,56 @@ const pageCells = computed(() => {
 
 // Snow style randomization is purely visual flavor and stays constant for
 // the page's lifetime; generated client-side only to avoid SSR hydration
-// mismatches.
-const snowStyles = shallowRef(new Array(PAGE_SIZE).fill(null).map(() => ({})));
-const traceStyles = shallowRef(new Array(PAGE_SIZE).fill(null).map(() => ({})));
+// mismatches. Sized to the largest possible page and keyed by cell
+// position, so a smaller page just uses the leading entries.
+const snowStyles = shallowRef(
+  new Array(DEFAULT_PAGE_SIZE).fill(null).map(() => ({}))
+);
+const traceStyles = shallowRef(
+  new Array(DEFAULT_PAGE_SIZE).fill(null).map(() => ({}))
+);
+
+/**
+ * How many previews fit on one page without scrolling. Desktop keeps the
+ * full 4x3 page. On narrow screens the grid is top-aligned, so the grid's
+ * top and a preview's height are stable regardless of the current row
+ * count -- measure them and fit as many whole rows as the viewport allows
+ * below the header and above the pager.
+ */
+function measurePageSize() {
+  if (typeof window === 'undefined' || !window.matchMedia) {
+    return DEFAULT_PAGE_SIZE;
+  }
+  if (!window.matchMedia(MOBILE_QUERY).matches) return DEFAULT_PAGE_SIZE;
+
+  const grid = gridRef.value;
+  const selector = selectorRef.value;
+  const preview = grid?.querySelector('.preview');
+  if (!grid || !selector || !preview) return DEFAULT_PAGE_SIZE;
+
+  const gs = getComputedStyle(grid);
+  const cols = gs.gridTemplateColumns.split(' ').length;
+  const rowGap = parseFloat(gs.rowGap) || 0;
+  const rowH = preview.getBoundingClientRect().height + rowGap;
+  if (rowH <= 0) return DEFAULT_PAGE_SIZE;
+
+  const controlsH = controlsRef.value?.getBoundingClientRect().height ?? 0;
+  const below =
+    (parseFloat(gs.marginBottom) || 0) +
+    controlsH +
+    (parseFloat(getComputedStyle(selector).paddingBottom) || 0);
+  const available =
+    window.innerHeight - grid.getBoundingClientRect().top - below;
+
+  const rows = Math.max(1, Math.floor((available + rowGap) / rowH));
+  return Math.min(displayGames.length, cols * rows);
+}
+
+let stopResize = null;
 onMounted(() => {
-  const styles = new Array(PAGE_SIZE);
-  const traces = new Array(PAGE_SIZE);
-  for (let i = 0; i < PAGE_SIZE; i++) {
+  const styles = new Array(DEFAULT_PAGE_SIZE);
+  const traces = new Array(DEFAULT_PAGE_SIZE);
+  for (let i = 0; i < DEFAULT_PAGE_SIZE; i++) {
     const delay = -(Math.random() * SNOW_MAX_DELAY).toFixed(2);
     const duration = (
       SNOW_DURATION_MIN +
@@ -125,6 +183,26 @@ onMounted(() => {
   }
   snowStyles.value = styles;
   traceStyles.value = traces;
+
+  // Fit the page to the viewport now, again after layout settles and
+  // fonts load (both shift the header height the fit depends on), and on
+  // every resize / rotation.
+  const update = () => {
+    pageSize.value = measurePageSize();
+  };
+  update();
+  nextTick(update);
+  document.fonts?.ready?.then(update).catch(() => {});
+  window.addEventListener('resize', update);
+  stopResize = () => window.removeEventListener('resize', update);
+});
+
+onBeforeUnmount(() => stopResize?.());
+
+// Keep the current page in range when the measured page size changes.
+watch(pageSize, () => {
+  const maxPage = pageCount.value - 1;
+  if (page.value > maxPage) page.value = maxPage;
 });
 </script>
 
@@ -415,6 +493,39 @@ onMounted(() => {
   :deep(svg) {
     max-width: 100%;
     max-height: 100%;
+  }
+}
+
+// ---------- Mobile / small-screen layout ----------
+// Widen the picker toward the screen edges, drop to fewer columns so each
+// preview stays tappable, and top-align the grid so a tall list scrolls
+// down instead of centering and clipping its first rows off-screen.
+@media (max-width: 960px) {
+  .selector {
+    width: 92%;
+    justify-content: flex-start;
+    padding: 1rem 0 2rem;
+  }
+
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2vw;
+    margin: 1.25rem 0;
+  }
+
+  .controls button {
+    font-size: 2.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 3vw;
+  }
+
+  .preview .label {
+    font-size: 1.15rem;
   }
 }
 </style>

@@ -82,6 +82,23 @@ body {
   text-transform: uppercase;
 }
 
+// Below the desktop minimum playable area the layout reflows for phones
+// and small tablets: the hard 1300x800 minimums are dropped so the page
+// sizes to the device width instead of forcing scroll on both axes.
+@media (max-width: 960px) {
+  html,
+  body {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  body {
+    // Fill the viewport width without the `100vw` minimum, which adds the
+    // scrollbar gutter and would trigger horizontal scroll on phones.
+    min-width: 100%;
+  }
+}
+
 button,
 input,
 select,
@@ -213,6 +230,9 @@ svg {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    // Guarantee breathing room between the title and the BACK link so the
+    // title wraps sooner instead of crowding the button on narrow screens.
+    gap: 1.5rem;
     padding-right: 2rem;
     margin-bottom: 1.5rem;
   }
@@ -279,6 +299,9 @@ svg {
 .back {
   font-size: 1.75rem;
   line-height: 1;
+  // Keep the chevron and "BACK" together on one line even when the header
+  // is tight (e.g. beside a wrapped title on a narrow screen).
+  white-space: nowrap;
 
   color: v-bind(FG);
   text-decoration: none;
@@ -303,6 +326,59 @@ svg {
     outline: none;
     transform: scaleY(1.4) scale(1.15);
     text-shadow: 0 0 0.5rem currentColor;
+  }
+}
+
+// ---------- Mobile / small-screen layout ----------
+// The desktop shell is a fixed 100vh column with a 1300x800 floor. On
+// phones the shell grows with content (so the home-page grid can scroll)
+// while still filling the screen via the dynamic viewport unit, and the
+// chrome shrinks so the header doesn't eat the playfield.
+@media (max-width: 960px) {
+  .crt {
+    // Own the CRT overlay's containing block so the scanline/vignette
+    // pseudo-elements cover the full (possibly scrolled) content height
+    // rather than just the first viewport.
+    position: relative;
+    min-width: 0;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .main {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    // Let the home-page grid overflow into a normal page scroll instead
+    // of being clipped; the game page has no overflow so it stays put.
+    overflow: visible;
+
+    .header {
+      padding-right: 1rem;
+      margin-bottom: 1rem;
+    }
+  }
+
+  .title {
+    font-size: 2rem;
+    padding: 0.75rem 0.5rem 0.75rem 1rem;
+  }
+
+  .back {
+    font-size: 1.35rem;
+  }
+
+  .settings {
+    font-size: 1.35rem;
+    bottom: 1rem;
+    left: 1rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .title {
+    font-size: 1.5rem;
   }
 }
 </style>

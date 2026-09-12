@@ -4,6 +4,7 @@ import Rpg from '~/games/rpg.js';
 import {
   createEngine,
   dispatchKey,
+  dispatchTouchEvent,
   setupEngineTest,
 } from '../../helpers/engine.js';
 
@@ -865,8 +866,8 @@ describe('Rpg scroll input edges', () => {
     // Release the up key -- _heldDown is still true, so the strafe
     // must fall back to 'down' rather than clearing entirely.
     window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowUp' }));
-    game.stop();
     expect(game._strafe).toBe('down');
+    game.stop();
   });
 
   it('releasing down while up is still held keeps the strafe pointing up', () => {
@@ -876,8 +877,165 @@ describe('Rpg scroll input edges', () => {
     dispatchKey('ArrowDown');
     expect(game._strafe).toBe('down');
     window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowDown' }));
-    game.stop();
     expect(game._strafe).toBe('up');
+    game.stop();
+  });
+});
+
+describe('Rpg touch strafe', () => {
+  // installCanvasStubs pins the canvas rect to 400x400 at the origin, so
+  // the top half is y < 200 and the bottom half is y >= 200.
+  it('holding the top half strafes up while advancing forward', () => {
+    const game = createEngine(Rpg);
+    game.start();
+    const startY = game._snakeY;
+    const startX = game._worldX;
+
+    dispatchTouchEvent(game.canvas, 'touchstart', { x: 200, y: 40 });
+    expect(game._strafe).toBe('up');
+    expect(game._started).toBe(true);
+
+    game.update();
+    game.stop();
+    expect(game._worldX).toBe(startX + 1);
+    expect(game._snakeY).toBeLessThan(startY);
+  });
+
+  it('holding the bottom half strafes down', () => {
+    const game = createEngine(Rpg);
+    game.start();
+    dispatchTouchEvent(game.canvas, 'touchstart', { x: 200, y: 360 });
+    expect(game._strafe).toBe('down');
+    game.stop();
+  });
+
+  it('lifting the finger stops the strafe', () => {
+    const game = createEngine(Rpg);
+    game.start();
+    dispatchTouchEvent(game.canvas, 'touchstart', { x: 200, y: 40 });
+    dispatchTouchEvent(game.canvas, 'touchend', { x: 200, y: 40 });
+    game.stop();
+    expect(game._strafe).toBeNull();
+  });
+
+  it('a held touch falls back to keyboard strafe when lifted', () => {
+    const game = createEngine(Rpg);
+    game.start();
+    // Hold down on the keyboard, then start a top touch (strafe up wins).
+    dispatchKey('ArrowDown');
+    dispatchTouchEvent(game.canvas, 'touchstart', { x: 200, y: 40 });
+    expect(game._strafe).toBe('up');
+    // Lift the finger -- the still-held Down key takes over.
+    dispatchTouchEvent(game.canvas, 'touchend', { x: 200, y: 40 });
+    expect(game._strafe).toBe('down');
+    game.stop();
+  });
+
+  it('does not strafe during combat but still marks the game started', () => {
+    const game = createEngine(Rpg);
+    game.start();
+    game._phase = 'combat';
+    dispatchTouchEvent(game.canvas, 'touchstart', { x: 200, y: 40 });
+    game.stop();
+    expect(game._strafe).toBeNull();
+    expect(game._started).toBe(true);
+  });
+
+  it('ignores touch after game over', () => {
+    const game = createEngine(Rpg);
+    game.gameOver = true;
+    game.start();
+    dispatchTouchEvent(game.canvas, 'touchstart', { x: 200, y: 40 });
+    game.stop();
+    expect(game._strafe).toBeNull();
+    expect(game._touchUp).toBe(false);
+  });
+});
+
+describe('Rpg combat touch', () => {
+  // installCanvasStubs pins a 400x400 canvas at the origin (DPR 1), so a
+  // touch's clientY maps 1:1 to canvas backing-store Y.
+  const slotY = (game, index) => {
+    const { actionsTop, slotH } = game._combatMenuMetrics(game._gridLayout());
+    return actionsTop + slotH * (index + 0.5);
+  };
+
+  const combatGame = () => {
+    const game = createEngine(Rpg);
+    game._phase = 'combat';
+    game._combat = makeCombat();
+    return game;
+  };
+
+  it('maps each menu slot to its action (attack / counter / run)', () => {
+    const game = combatGame();
+    expect(game._combatActionAt(slotY(game, 0), 200)).toBe('attack');
+    expect(game._combatActionAt(slotY(game, 1), 200)).toBe('counter');
+    expect(game._combatActionAt(slotY(game, 2), 200)).toBe('run');
+  });
+
+  it('tapping a slot selects and resolves that action', () => {
+    const game = combatGame();
+    const spy = vi
+      .spyOn(game, '_resolveCombatTurn')
+      .mockImplementation(() => {});
+    game._handleCombatTouch({ clientX: 200, clientY: slotY(game, 1) });
+    expect(game._combat.selected).toBe('counter');
+    expect(spy).toHaveBeenCalledWith('counter');
+  });
+
+  it('ignores taps above the menu panel (the sprite area)', () => {
+    const game = combatGame();
+    const spy = vi
+      .spyOn(game, '_resolveCombatTurn')
+      .mockImplementation(() => {});
+    expect(game._combatActionAt(10, 200)).toBeNull();
+    game._handleCombatTouch({ clientX: 200, clientY: 10 });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('does not resolve RUN while HP is below the run threshold', () => {
+    const game = combatGame();
+    game._hp = 1; // _canRun() -> false
+    const spy = vi
+      .spyOn(game, '_resolveCombatTurn')
+      .mockImplementation(() => {});
+    game._handleCombatTouch({ clientX: 200, clientY: slotY(game, 2) });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('is locked while a turn animation is playing', () => {
+    const game = combatGame();
+    game._combat.animQueue = [{ kind: 'attack' }];
+    const spy = vi
+      .spyOn(game, '_resolveCombatTurn')
+      .mockImplementation(() => {});
+    game._handleCombatTouch({ clientX: 200, clientY: slotY(game, 0) });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('is locked during the spiral transition', () => {
+    const game = combatGame();
+    game._transition = { active: true };
+    const spy = vi
+      .spyOn(game, '_resolveCombatTurn')
+      .mockImplementation(() => {});
+    game._handleCombatTouch({ clientX: 200, clientY: slotY(game, 0) });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('routes a canvas touch in the combat phase to the tapped action', () => {
+    const game = combatGame();
+    game.start();
+    const spy = vi
+      .spyOn(game, '_resolveCombatTurn')
+      .mockImplementation(() => {});
+    dispatchTouchEvent(game.canvas, 'touchstart', {
+      x: 200,
+      y: slotY(game, 0),
+    });
+    game.stop();
+    expect(spy).toHaveBeenCalledWith('attack');
   });
 });
 
@@ -1577,5 +1735,30 @@ describe('Rpg combat layout', () => {
     huge.ctx.font = `${labelFontPx}px PublicPixel, monospace`;
     const enemyLabelW = huge.ctx.measureText('ENEMY 999/999').width;
     expect(hugeGeom.barW).toBeGreaterThanOrEqual(enemyLabelW);
+  });
+
+  it('shrinks the HP panel to fit beside the sprite (no overlap with wide labels)', () => {
+    const game = createEngine(Rpg);
+    game._combat = makeCombat({
+      enemy: { hp: 999, maxHp: 999, attackMin: 0, attackMax: 0 },
+    });
+    game._phase = 'combat';
+    // The fake ctx advances glyphs at ~0.55em; PublicPixel is ~1em, which
+    // is what actually overflowed the channel and overlapped the sprites
+    // on small / low-DPR canvases. Simulate the wider metric so the
+    // fit-to-channel shrink is exercised.
+    vi.spyOn(game.ctx, 'measureText').mockImplementation((t) => {
+      const m = /(\d+(?:\.\d+)?)px/.exec(game.ctx._font);
+      return { width: t.length * (m ? parseFloat(m[1]) : 10) };
+    });
+    const layout = game._gridLayout();
+    const geom = game._combatSpriteGeom(layout);
+    // Neither panel may cross into the sprite it shares a row with.
+    expect(geom.playerBarX).toBeGreaterThanOrEqual(
+      geom.playerCenterX + geom.spriteSize / 2
+    );
+    expect(geom.enemyBarX + geom.barW).toBeLessThanOrEqual(
+      geom.enemyCenterX - geom.spriteSize / 2
+    );
   });
 });

@@ -43,7 +43,9 @@ export default class Duo extends Engine {
     this.addRandomFood();
 
     this.onInput(({ kind, dir }) => {
-      if (kind === 'wasd') {
+      // Touch exposes a single gesture stream, so on mobile it steers the
+      // primary (foreground) snake to keep the game one-player playable.
+      if (kind === 'wasd' || kind === 'touch') {
         this.setDirection(this._snakeWasd, dir);
         this._startedWasd = true;
       } else if (kind === 'arrows') {

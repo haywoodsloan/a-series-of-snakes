@@ -169,6 +169,31 @@ test suite.
 Movement is bound to arrow keys and WASD. In `duo`, WASD drives the
 primary snake and the arrow keys drive the alternate snake.
 
+On touch devices the playfield is also steerable without a keyboard:
+
+- **Tap** one of the four edge regions of the playfield -- top, bottom,
+  left, or right -- to turn that way. The two diagonals through the
+  center split the canvas into four triangles, so the region you hit
+  picks the direction.
+- **Swipe** in any direction to turn that way; the dominant axis of the
+  swipe wins. Turns register as soon as the finger travels 24 CSS pixels,
+  without waiting for release. Keep sliding to make successive turns;
+  lifting after a swipe does not add an extra turn. A shorter gesture
+  counts as a tap.
+
+Touch drives the same games as the keyboard. In `duo`, touch steers the
+primary snake so the board stays playable one-handed on a phone. In
+`rpg`, which scrolls sideways instead of turning, tap and hold the top
+or bottom half of the playfield to strafe up or down. Slide across the
+center to change strafe without lifting; release to travel straight.
+In combat, tap an action row to select and confirm it. Rows have at least
+44 CSS pixels of height on phone-sized playfields, and ignore taps during
+combat animations or outside the menu.
+
+The first finger owns each gesture; extra fingers cannot hijack it.
+Cancelled touches, leaving the tab, and stopping a game clear held input.
+`mirror` still steers both snakes, and `inverted` still reverses directions.
+
 The settings button (bottom-left, home page only) controls base speed
 and grid size, and toggles an optional grid overlay. Changes apply on
 the next game start, or immediately for running games that subscribe

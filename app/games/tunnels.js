@@ -1,5 +1,5 @@
 import { FG, SNAKE_ALT, TUNNEL_HUD } from '../utils/colors.js';
-import Engine, { SCORE_FONT, STARTING_LENGTH } from './engine.js';
+import Engine, { STARTING_LENGTH } from './engine.js';
 
 // Number of tunnels the player gets per run. Each body cell the head
 // enters while underground consumes one; each tunneled segment refunds
@@ -96,18 +96,19 @@ export default class Tunnels extends Engine {
   }
 
   // Extend the default HUD with a centered "TUNNELS N" readout. Drawn
-  // here (rather than in a render() override) so the engine's game-over
-  // overlay dims it along with SCORE/HI, matching the rest of the chrome.
+  // here (rather than in a render() override) so it shares the base HUD's
+  // placement -- above or inside the field -- and its game-over dimming,
+  // staying in lockstep with SCORE / HI.
   _drawScore(layout) {
     super._drawScore(layout);
 
     const { ctx } = this;
-    const { ox, oy, cell } = layout;
-    const pad = Math.max(4, Math.round(cell * 0.25));
+    const { ox, cell } = layout;
     const w = cell * this.cols;
+    const { y, baseline } = this._hudRow(layout);
 
-    ctx.font = SCORE_FONT;
-    ctx.textBaseline = 'top';
+    ctx.font = this._hudFont();
+    ctx.textBaseline = baseline;
     ctx.textAlign = 'center';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
     ctx.shadowBlur = 6;
@@ -115,7 +116,7 @@ export default class Tunnels extends Engine {
     // the counter stays readable against (and never blends into) the
     // body or the tunneled-segment overlay.
     ctx.fillStyle = TUNNEL_HUD;
-    ctx.fillText(`TUNNELS ${this._tunnelsRemaining}`, ox + w / 2, oy + pad);
+    ctx.fillText(`TUNNELS ${this._tunnelsRemaining}`, ox + w / 2, y);
     ctx.textAlign = 'start';
     ctx.shadowBlur = 0;
   }

@@ -209,3 +209,44 @@ export function withFakeTimers(fn) {
 /** Dispatch a `keydown` event with the given `KeyboardEvent.code`. */
 export const dispatchKey = (code, init = {}) =>
   window.dispatchEvent(new KeyboardEvent('keydown', { code, ...init }));
+
+/**
+ * Fire a single touch event of `type` at `point` on `target`. happy-dom
+ * lacks the `Touch`/`TouchEvent` constructors, so a plain cancelable
+ * `Event` is decorated with `changedTouches`. Pass an array to model
+ * fingers moving or lifting together. Extra touch fields can use `init`.
+ *
+ * @param {EventTarget} target
+ * @param {'touchstart' | 'touchend' | 'touchcancel' | 'touchmove'} type
+ * @param {{ x: number, y: number, identifier?: number } | { x: number, y: number, identifier?: number }[]} point
+ * @param {Record<string, unknown>} [init]
+ */
+export function dispatchTouchEvent(target, type, point, init = {}) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  const points = Array.isArray(point) ? point : [point];
+  event.changedTouches = points.map(({ x, y, ...fields }) => ({
+    clientX: x,
+    clientY: y,
+    identifier: 0,
+    ...init,
+    ...fields,
+  }));
+  target.dispatchEvent(event);
+  return event;
+}
+
+/**
+ * Simulate a complete touch gesture on `target`: a `touchstart` at
+ * `start` followed by a `touchend` at `end`. Points are `{ x, y }` in CSS
+ * pixels, matching the coordinate space of `getBoundingClientRect`.
+ * Defaults to a tap in place (`end === start`). For press-and-hold
+ * gestures, drive `dispatchTouchEvent` directly.
+ *
+ * @param {EventTarget} target      Usually the engine canvas.
+ * @param {{ x: number, y: number }} start
+ * @param {{ x: number, y: number }} [end=start]
+ */
+export function dispatchTouch(target, start, end = start) {
+  dispatchTouchEvent(target, 'touchstart', start);
+  dispatchTouchEvent(target, 'touchend', end);
+}

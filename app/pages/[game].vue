@@ -281,6 +281,11 @@ onBeforeUnmount(destroyGame);
   display: block;
   width: 100%;
   height: 100%;
+
+  // Steer with taps/swipes on mobile: opt out of the browser's default
+  // touch gestures (scroll, pinch-zoom, double-tap zoom) so the engine's
+  // touch handlers own every gesture on the playfield.
+  touch-action: none;
 }
 
 .overlay {
@@ -556,6 +561,79 @@ onBeforeUnmount(destroyGame);
     transform: scaleY(1.4) scale(1.1);
     text-shadow: 0 0 0.5rem currentColor;
     box-shadow: 0 0 1rem rgba(212, 255, 212, 0.6);
+  }
+}
+
+// ---------- Mobile / small-screen layout ----------
+// Keep the game-over overlay + scoreboard inside the viewport on phones:
+// the scoreboard's desktop `min-width: 32rem` (~512px) is wider than a
+// phone, so it's relaxed to fill the width-constrained overlay instead.
+@media (max-width: 960px) {
+  .overlay {
+    width: 92vw;
+    gap: 1.75rem;
+  }
+
+  .game-over {
+    font-size: 2.25rem;
+    letter-spacing: 0.15rem;
+  }
+
+  .end-screen {
+    width: 100%;
+    gap: 1.75rem;
+  }
+
+  .name-entry {
+    width: 100%;
+    gap: 1.5rem;
+
+    .prompt {
+      // The desktop prompt is a single nowrap line (~650px); let it wrap
+      // inside the width-constrained overlay on phones instead of forcing
+      // the form wider than the screen.
+      white-space: normal;
+      text-align: center;
+      font-size: 1.1rem;
+      max-width: 100%;
+    }
+  }
+
+  .scoreboard {
+    min-width: 0;
+    width: 100%;
+    // No global `box-sizing: border-box` reset in this app, so `width:
+    // 100%` alone would add the padding on top of the overlay width and
+    // overflow the screen. Fold the padding into the width instead.
+    box-sizing: border-box;
+    font-size: 1.2rem;
+    padding: 1rem 1.25rem;
+
+    li {
+      column-gap: 1.25rem;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .game-over {
+    font-size: 1.75rem;
+  }
+
+  .scoreboard {
+    font-size: 1rem;
+    padding: 1rem;
+
+    .scoreboard-category {
+      font-size: 0.85rem;
+    }
+
+    // Tighten the fixed RANK/SCORE tracks and the gaps so the three-column
+    // row fits inside the width-constrained overlay on a phone.
+    li {
+      grid-template-columns: 4ch 1fr 6ch;
+      column-gap: 0.75rem;
+    }
   }
 }
 </style>

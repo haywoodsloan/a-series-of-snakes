@@ -8,7 +8,7 @@ import {
   WALL,
 } from '../utils/colors.js';
 import { qualifies } from '../utils/highscores.js';
-import Engine, { SCORE_FONT, STARTING_LENGTH } from './engine.js';
+import Engine, { STARTING_LENGTH } from './engine.js';
 
 // ---------- Tuning ----------
 
@@ -17,6 +17,8 @@ import Engine, { SCORE_FONT, STARTING_LENGTH } from './engine.js';
 // multiple or fraction of this so a single tick-rate change scales the
 // whole simulation together.
 const TICK_RATE = 8;
+const TOUCH_STRAFE_HYSTERESIS = 8; // CSS pixels around the center line.
+const COMBAT_TOUCH_TARGET_PX = 44;
 
 // Enemies advance ~1.2 cells per snake tick. Faster than the snake's
 // own 1-cell/tick cadence so they can actually run the player down on
@@ -285,9 +287,22 @@ export default class Rpg extends Engine {
     this._heldDown = false;
     this._strafe = null;
 
+    // Touch strafe: a tap-and-hold on the top/bottom half of the canvas
+    // strafes up/down -- the mobile analogue of holding ArrowUp/ArrowDown.
+    // Tracked separately from the keyboard-held flags and merged in
+    // `_syncStrafe`. `_touchStrafeId` pins the strafe to one finger so
+    // extra touches can't hijack or prematurely release it.
+    this._touchUp = false;
+    this._touchDown = false;
+    /** @type {number | null} */
+    this._touchStrafeId = null;
+
     // Bound so add/remove pair up cleanly across start/stop cycles.
     this._onKeyDownRpg = (e) => this._handleKeyDown(e);
     this._onKeyUpRpg = (e) => this._handleKeyUp(e);
+    this._onTouchStartRpg = (e) => this._handleTouchStart(e);
+    this._onTouchMoveRpg = (e) => this._handleTouchMove(e);
+    this._onTouchEndRpg = (e) => this._handleTouchEnd(e);
   }
 
   // ---------- Lifecycle ----------
@@ -296,12 +311,30 @@ export default class Rpg extends Engine {
     super.start();
     window.addEventListener('keydown', this._onKeyDownRpg);
     window.addEventListener('keyup', this._onKeyUpRpg);
+    // `passive: false` so the strafe handlers can preventDefault the page
+    // scroll/zoom while a finger is held on the playfield.
+    this.canvas.addEventListener('touchstart', this._onTouchStartRpg, {
+      passive: false,
+    });
+    this.canvas.addEventListener('touchmove', this._onTouchMoveRpg, {
+      passive: false,
+    });
+    this.canvas.addEventListener('touchend', this._onTouchEndRpg, {
+      passive: false,
+    });
+    this.canvas.addEventListener('touchcancel', this._onTouchEndRpg, {
+      passive: false,
+    });
   }
 
   stop() {
     super.stop();
     window.removeEventListener('keydown', this._onKeyDownRpg);
     window.removeEventListener('keyup', this._onKeyUpRpg);
+    this.canvas.removeEventListener('touchstart', this._onTouchStartRpg);
+    this.canvas.removeEventListener('touchmove', this._onTouchMoveRpg);
+    this.canvas.removeEventListener('touchend', this._onTouchEndRpg);
+    this.canvas.removeEventListener('touchcancel', this._onTouchEndRpg);
     this._clearPendingTimeout();
   }
 
@@ -319,6 +352,16 @@ export default class Rpg extends Engine {
 
   // ---------- Input ----------
 
+  _clearInput() {
+    super._clearInput();
+    this._heldUp = false;
+    this._heldDown = false;
+    this._touchUp = false;
+    this._touchDown = false;
+    this._touchStrafeId = null;
+    this._strafe = null;
+  }
+
   _handleKeyDown(e) {
     if (this.gameOver) return;
     const code = e.code;
@@ -326,12 +369,12 @@ export default class Rpg extends Engine {
       if (code === 'ArrowUp' || code === 'KeyW') {
         e.preventDefault();
         this._heldUp = true;
-        this._strafe = 'up';
+        this._syncStrafe('up');
         this._started = true;
       } else if (code === 'ArrowDown' || code === 'KeyS') {
         e.preventDefault();
         this._heldDown = true;
-        this._strafe = 'down';
+        this._syncStrafe('down');
         this._started = true;
       } else if (
         code === 'ArrowLeft' ||
@@ -354,11 +397,143 @@ export default class Rpg extends Engine {
     const code = e.code;
     if (code === 'ArrowUp' || code === 'KeyW') {
       this._heldUp = false;
-      this._strafe = this._heldDown ? 'down' : null;
+      this._syncStrafe();
     } else if (code === 'ArrowDown' || code === 'KeyS') {
       this._heldDown = false;
-      this._strafe = this._heldUp ? 'up' : null;
+      this._syncStrafe();
     }
+  }
+
+  /**
+   * Begin a touch strafe. A tap-and-hold on the top half of the canvas
+   * strafes up, the bottom half strafes down -- the mobile analogue of
+   * holding ArrowUp/ArrowDown. Any touch also flips `_started` so the
+   * title screen unblocks. Only the first finger down drives the strafe;
+   * extra fingers are ignored until it lifts.
+   * @param {TouchEvent} event
+   */
+  _handleTouchStart(event) {
+    if (this.gameOver || this._transition) return;
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+    // Suppress scroll/zoom and the delayed synthetic click while held.
+    event.preventDefault();
+    if (this._touchStrafeId !== null) return;
+    this._touchStrafeId = touch.identifier ?? 0;
+    this._started = true;
+    // Combat is menu-driven: a tap picks the action under it.
+    if (this._phase === 'combat') {
+      this._handleCombatTouch(touch);
+      return;
+    }
+    // Strafe only exists in the side-scroller.
+    if (this._phase !== 'scroll') return;
+    const rect = this.canvas.getBoundingClientRect();
+    const dir = touch.clientY < rect.top + rect.height / 2 ? 'up' : 'down';
+    if (dir === 'up') this._touchUp = true;
+    else this._touchDown = true;
+    this._syncStrafe(dir);
+  }
+
+  /** @param {TouchEvent} event */
+  _handleTouchMove(event) {
+    if (this.gameOver || this._transition || this._phase !== 'scroll') return;
+    const touch = Array.from(event.changedTouches ?? []).find(
+      (t) => (t.identifier ?? 0) === this._touchStrafeId
+    );
+    if (!touch) return;
+    event.preventDefault();
+    const rect = this.canvas.getBoundingClientRect();
+    const offset = touch.clientY - (rect.top + rect.height / 2);
+    if (Math.abs(offset) < TOUCH_STRAFE_HYSTERESIS) return;
+    const up = offset < 0;
+    if (up === this._touchUp) return;
+    this._touchUp = up;
+    this._touchDown = !up;
+    this._syncStrafe(up ? 'up' : 'down');
+  }
+
+  /**
+   * End a touch strafe when the finger that started it lifts (or the
+   * gesture is cancelled), releasing whichever direction it held and
+   * falling back to any still-held keyboard strafe.
+   * @param {TouchEvent} event
+   */
+  _handleTouchEnd(event) {
+    if (this._touchStrafeId === null) return;
+    const touch = Array.from(event.changedTouches ?? []).find(
+      (t) => (t.identifier ?? 0) === this._touchStrafeId
+    );
+    if (!touch) return;
+    this._touchStrafeId = null;
+    this._touchUp = false;
+    this._touchDown = false;
+    this._syncStrafe();
+  }
+
+  /**
+   * Recompute `_strafe` from every held input (keyboard + touch). When
+   * `preferred` is supplied and that direction is currently held it wins,
+   * matching the keyboard's "latest press steers" feel; otherwise any
+   * still-held direction is kept, else the strafe clears.
+   * @param {'up' | 'down' | null} [preferred=null]
+   */
+  _syncStrafe(preferred = null) {
+    const up = this._heldUp || this._touchUp;
+    const down = this._heldDown || this._touchDown;
+    if (preferred === 'up' && up) this._strafe = 'up';
+    else if (preferred === 'down' && down) this._strafe = 'down';
+    else this._strafe = up ? 'up' : down ? 'down' : null;
+  }
+
+  /**
+   * Resolve a combat-phase tap. A tap on an action selects and confirms
+   * it in one gesture (like the number-key shortcuts), subject to the
+   * same locks as keyboard input: nothing happens during the spiral wipe
+   * or while a turn's animations are still playing out.
+   * @param {{ clientX: number, clientY: number }} touch
+   */
+  _handleCombatTouch(touch) {
+    if (this._transition) return;
+    const c = this._combat;
+    if (!c) return;
+    if (c.animQueue && c.animQueue.length > 0) return;
+    const action = this._combatActionAt(touch.clientY, touch.clientX);
+    if (!action) return;
+    if (action === 'run' && !this._canRun()) return;
+    // Move the cursor to the tapped action for visual feedback, then
+    // resolve the turn.
+    c.selected = action;
+    this._resolveCombatTurn(action);
+  }
+
+  /**
+   * The combat action whose menu slot a touch's Y (client/CSS px) lands
+   * in, or null if the tap missed the bottom menu panel. The whole panel
+   * maps to the nearest action row for a forgiving tap target.
+   * @param {number} clientY
+   * @param {number} clientX
+   * @returns {'attack' | 'counter' | 'run' | null}
+   */
+  _combatActionAt(clientY, clientX) {
+    if (this._phase !== 'combat') return null;
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.height || !rect.width) return null;
+    const layout = this._gridLayout();
+    const { panelTop, panelBottom, actionsTop, slotH } =
+      this._combatMenuMetrics(layout);
+    if (slotH <= 0) return null;
+    // Touch is in CSS px; the menu geometry is in canvas backing-store px.
+    const by = (clientY - rect.top) * (this.canvas.height / rect.height);
+    const bx = (clientX - rect.left) * (this.canvas.width / rect.width);
+    if (bx < layout.ox || bx > layout.ox + layout.cell * this.cols) return null;
+    if (by < panelTop || by > panelBottom) return null;
+    const idx = clamp(
+      Math.floor((by - actionsTop) / slotH),
+      0,
+      ACTIONS.length - 1
+    );
+    return ACTIONS[idx];
   }
 
   _handleCombatKey(code, event) {
@@ -791,6 +966,7 @@ export default class Rpg extends Engine {
   // ---------- Combat ----------
 
   _beginCombat(enemy) {
+    this._clearInput();
     this._combat = {
       enemy,
       selected: 'attack',
@@ -813,6 +989,7 @@ export default class Rpg extends Engine {
   }
 
   _endCombat() {
+    this._clearInput();
     const enemy = this._combat?.enemy;
     this._beginTransition({
       midFn: () => {
@@ -1275,7 +1452,7 @@ export default class Rpg extends Engine {
     ctx.fillStyle = ratio > 0.5 ? FG : ratio > 0.25 ? SCORE_COLOR : FOOD;
     ctx.fillRect(barX, barY, barW * ratio, barH);
 
-    ctx.font = SCORE_FONT;
+    ctx.font = this._hudFont();
     ctx.textBaseline = 'bottom';
     ctx.textAlign = 'center';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
@@ -1374,7 +1551,9 @@ export default class Rpg extends Engine {
     // lunge contacts, not when the turn resolves.
     const { barW, playerBarX, enemyBarX } = geom;
     const barH = Math.max(14, Math.round(cell * 0.7));
-    const labelFontPx = Math.max(22, Math.round(cell * 1.05));
+    // Use the (possibly shrunk-to-fit) label font from the geometry so the
+    // bar sits the right distance below the label.
+    const labelFontPx = geom.labelFontPx;
     const enemyBarY = geom.enemyBaseY + labelFontPx + 4;
     const playerBarY = geom.playerBaseY + spriteSize - barH;
     const displayedPlayerHp = Math.min(
@@ -1393,6 +1572,7 @@ export default class Rpg extends Engine {
       this._maxHp,
       FG,
       'PLAYER',
+      labelFontPx,
       layout
     );
     this._drawCombatHpBar(
@@ -1403,6 +1583,7 @@ export default class Rpg extends Engine {
       c.enemy.maxHp,
       ENEMY_COLOR,
       'ENEMY',
+      labelFontPx,
       layout
     );
 
@@ -1426,22 +1607,48 @@ export default class Rpg extends Engine {
     const { ctx } = this;
     const { ox, oy, cell } = layout;
     const w = cell * this.cols;
-    const h = cell * this.rows;
-    // Sprites + HP panels share the top 2/3 of the canvas. The
-    // bottom 1/3 belongs to the action menu.
-    const topPanelH = h * (2 / 3);
+    const topPanelH = this._combatMenuMetrics(layout).panelTop - oy;
     const spriteSize = Math.min(w * 0.22, topPanelH * 0.42);
     const pad = Math.max(4, Math.round(cell * 0.25));
 
-    // Bar width target: capped at ~22% of canvas or ~120% of the
-    // sprite. Then floored at the widest worst-case label so the
-    // text fits inside the bar regardless of how big maxHp grows.
-    // The label font scales with `cell` (same as the floaters do),
-    // so the floor on barW has to use the same scaled font when it
-    // measures -- otherwise on big canvases the label outgrows the
-    // bar after it's been laid out.
+    // Player sprite hugs the left edge; its HP panel sits on the
+    // *opposite* (right) side of the playfield. Enemy sprite mirrors
+    // on the right edge with its panel on the left. This swaps the
+    // two halves visually -- you read your own HP across from your
+    // sprite. Bars are pulled *inboard* from the playfield edge by
+    // `barEdgePad` so they read as paired with their sprite rather
+    // than floating against the wall.
+    const playerCenterX = ox + spriteSize / 2 + pad * 2;
+    const enemyCenterX = ox + w - spriteSize / 2 - pad * 2;
+    const playerCenterY = oy + topPanelH * 0.66;
+    const enemyCenterY = oy + topPanelH * 0.24;
+    const barEdgePad = Math.max(spriteSize * 0.7, cell * 2.5);
+
+    // Horizontal channel the HP panel has to fit inside, between its
+    // sprite's opposite (the sprite it shares a row with) and the
+    // playfield edge. If the panel is wider than this it collides with
+    // that sprite -- which is exactly what happened on small / low-DPR
+    // canvases where the label font hit its floor and outgrew the gap.
+    const channelW = w - barEdgePad - spriteSize - pad * 2;
+    const maxBarW = Math.max(1, channelW - 8);
+
+    // Label font is proportional to `cell` on roomy canvases, but shrinks
+    // to fit the channel on small ones (never below a readable minimum) so
+    // the panel never overruns into the opposite sprite.
     const enemyMaxHp = this._combat?.enemy?.maxHp ?? 99;
-    const labelFontPx = Math.max(22, Math.round(cell * 1.05));
+    const idealFontPx = Math.max(22, Math.round(cell * 1.05));
+    ctx.font = `${idealFontPx}px PublicPixel, monospace`;
+    const idealLabelW = Math.max(
+      ctx.measureText(`PLAYER ${this._maxHp}/${this._maxHp}`).width,
+      ctx.measureText(`ENEMY ${enemyMaxHp}/${enemyMaxHp}`).width
+    );
+    const labelFontPx =
+      idealLabelW > maxBarW - 4
+        ? Math.max(12, Math.floor((idealFontPx * (maxBarW - 4)) / idealLabelW))
+        : idealFontPx;
+
+    // Bar width fits the (fitted) label but is hard-capped to the channel
+    // so the panel can never reach across into the opposite sprite.
     ctx.font = `${labelFontPx}px PublicPixel, monospace`;
     const playerLabelW = ctx.measureText(
       `PLAYER ${this._maxHp}/${this._maxHp}`
@@ -1450,25 +1657,11 @@ export default class Rpg extends Engine {
       `ENEMY ${enemyMaxHp}/${enemyMaxHp}`
     ).width;
     const targetBarW = Math.min(w * 0.22, spriteSize * 1.2);
-    const barW = Math.max(playerLabelW, enemyLabelW, targetBarW) + 4;
+    const barW = Math.min(
+      maxBarW,
+      Math.max(playerLabelW, enemyLabelW, targetBarW) + 4
+    );
 
-    // Player sprite hugs the left edge; its HP panel sits on the
-    // *opposite* (right) side of the playfield. Enemy sprite mirrors
-    // on the right edge with its panel on the left. This swaps the
-    // two halves visually -- you read your own HP across from your
-    // sprite -- and leaves a wide breathing channel between each
-    // sprite and its bar so neither crowds the other.
-    const playerCenterX = ox + spriteSize / 2 + pad * 2;
-    const enemyCenterX = ox + w - spriteSize / 2 - pad * 2;
-    const playerCenterY = oy + topPanelH * 0.66;
-    const enemyCenterY = oy + topPanelH * 0.24;
-    // Bars sit on the opposite side of the playfield from their
-    // sprite but are pulled *inboard* from the playfield edge by
-    // `barEdgePad` so they read as paired with their sprite rather
-    // than floating against the wall. Tuned to ~0.7 sprite-widths /
-    // ~2.5 cells -- close enough to the wall to put real distance
-    // between the bar and the opposite sprite.
-    const barEdgePad = Math.max(spriteSize * 0.7, cell * 2.5);
     const playerBarX = ox + w - barEdgePad - barW;
     const enemyBarX = ox + barEdgePad;
 
@@ -1485,6 +1678,7 @@ export default class Rpg extends Engine {
       barW,
       playerBarX,
       enemyBarX,
+      labelFontPx,
     };
   }
 
@@ -1690,7 +1884,7 @@ export default class Rpg extends Engine {
     }
   }
 
-  _drawCombatHpBar(x, y, w, hp, maxHp, color, label, layout) {
+  _drawCombatHpBar(x, y, w, hp, maxHp, color, label, labelFontPx, layout) {
     const { ctx } = this;
     const cell = (layout ?? this._gridLayout()).cell;
     const barH = Math.max(14, Math.round(cell * 0.7));
@@ -1700,9 +1894,8 @@ export default class Rpg extends Engine {
     ctx.fillStyle = color;
     ctx.fillRect(x, y, w * ratio, barH);
 
-    // Label font scales with cell so it grows with the bar on big
-    // canvases. Floor matches _combatSpriteGeom's measurement font.
-    const labelFontPx = Math.max(22, Math.round(cell * 1.05));
+    // Label uses the shrunk-to-fit font resolved in `_combatSpriteGeom` so
+    // it never overruns the bar (or the sprite across from it).
     ctx.font = `${labelFontPx}px PublicPixel, monospace`;
     ctx.textBaseline = 'bottom';
     ctx.textAlign = 'left';
@@ -1783,29 +1976,61 @@ export default class Rpg extends Engine {
     ctx.textBaseline = 'alphabetic';
   }
 
+  /**
+   * Vertical metrics for the combat action menu (the bottom third of the
+   * canvas). Shared by the renderer and the touch hit-test so a tapped
+   * action lines up with the drawn label. All values are backing-store px.
+   * @param {{ oy: number, cell: number }} layout
+   */
+  _combatMenuMetrics({ oy, cell }) {
+    const h = cell * this.rows;
+    const cssHeight = this.canvas.getBoundingClientRect().height;
+    const scaleY = this.canvas.height / Math.max(1, cssHeight);
+    // Backing-store dimensions are rounded; DPR alone can undersize a row
+    // when the canvas has a fractional CSS height.
+    const minSlotH = Math.ceil(COMBAT_TOUCH_TARGET_PX * scaleY);
+    // Reserve usable action rows even on short landscape playfields; the
+    // sprite layout consumes the remaining space above the same boundary.
+    const panelH = Math.min(h, Math.max(h / 3, minSlotH * ACTIONS.length));
+    const topPanelH = h - panelH;
+    const panelTop = oy + topPanelH;
+    const naturalSlotH = (panelH * 0.68) / ACTIONS.length;
+    const slotH = Math.min(
+      panelH / ACTIONS.length,
+      Math.max(minSlotH, naturalSlotH)
+    );
+    const actionsTop =
+      panelTop +
+      (naturalSlotH >= minSlotH
+        ? panelH * 0.18
+        : (panelH - slotH * ACTIONS.length) / 2);
+    return {
+      panelTop,
+      panelBottom: oy + h,
+      actionsTop,
+      slotH,
+    };
+  }
+
   _drawCombatMenu(layout) {
     const { ctx } = this;
-    const { ox, oy, cell } = layout;
-    const h = cell * this.rows;
+    const { ox, cell } = layout;
     const c = this._combat;
     if (!c) return;
 
     // Bottom panel: action labels stacked vertically and left-aligned.
     // No header banner -- combat context is implied by the sprites
     // above. Menu owns the bottom 1/3 of the canvas; sprites the top 2/3.
-    const topPanelH = h * (2 / 3);
-    const panelTop = oy + topPanelH;
-    const panelH = h - topPanelH;
+    const { actionsTop, slotH } = this._combatMenuMetrics(layout);
 
     // Action labels render bigger than the rest of the UI so they
-    // dominate the bottom panel. Size scales with both cell and panel
+    // dominate the bottom panel. Size scales with both cell and slot
     // height so the labels stay readable on small canvases without
     // overflowing on large ones. Calibrated to ~75% of the earlier
     // "too big" sizing.
-    const slotH0 = (panelH * (0.86 - 0.18)) / ACTIONS.length;
     const fontPx = Math.max(
       21,
-      Math.round(Math.min(cell * 1.8, slotH0 * 0.525))
+      Math.round(Math.min(cell * 1.8, slotH * 0.525))
     );
     ctx.font = `${fontPx}px PublicPixel, monospace`;
     ctx.textAlign = 'left';
@@ -1814,9 +2039,7 @@ export default class Rpg extends Engine {
     ctx.shadowBlur = 6;
 
     // Left-aligned action stack. Inset from the playfield edge by a
-    // couple of cells so labels don't kiss the border. Split the
-    // panel evenly across the action slots so the cursor lands at the
-    // same baseline for every option.
+    // couple of cells so labels don't kiss the border.
     const labelX = ox + Math.max(cell * 1.5, 24);
     // Render the cursor arrow and the action label in separate
     // fillText calls so we can tighten the gap between them without
@@ -1832,9 +2055,6 @@ export default class Rpg extends Engine {
     // nudge lines the cursor up with the cap-height midline of
     // ATTACK / COUNTER / RUN.
     const arrowYNudge = Math.round(fontPx * 0.05) - 5;
-    const actionsTop = panelTop + panelH * 0.18;
-    const actionsBottom = panelTop + panelH * 0.86;
-    const slotH = (actionsBottom - actionsTop) / ACTIONS.length;
     for (let i = 0; i < ACTIONS.length; i++) {
       const action = ACTIONS[i];
       const selectable = action !== 'run' || this._canRun();
@@ -1909,12 +2129,6 @@ export default class Rpg extends Engine {
     ctx.fillStyle = SNAKE_ALT;
     ctx.fill(path);
     ctx.restore();
-  }
-
-  _drawGameOver() {
-    const { ctx, canvas } = this;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 }
 
