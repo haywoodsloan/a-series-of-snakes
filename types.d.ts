@@ -66,6 +66,7 @@ declare type Settings = {
   baseSpeed: number;
   gridLines: boolean;
   gridSize: number;
+  crtGlow: boolean;
 };
 
 // ---------- Games index ----------

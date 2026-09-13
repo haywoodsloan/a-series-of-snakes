@@ -33,6 +33,18 @@ describe('settings', () => {
     });
   });
 
+  it('persists an explicit CRT glow opt-in', async () => {
+    settings.crtGlow = true;
+    try {
+      await vi.waitFor(() => {
+        const raw = window.localStorage.getItem(STORAGE_KEY_SETTINGS);
+        expect(JSON.parse(raw ?? 'null')?.crtGlow).toBe(true);
+      });
+    } finally {
+      settings.crtGlow = false;
+    }
+  });
+
   it('onSettingsChange fires listeners with the new value', async () => {
     const calls = [];
     const unsubscribe = onSettingsChange((s) => calls.push(s.baseSpeed));
@@ -78,7 +90,27 @@ describe('settings', () => {
       expect(SPEED_OPTIONS).toContain(fresh.settings.baseSpeed);
       expect(typeof fresh.settings.gridLines).toBe('boolean');
       expect(GRID_SIZE_OPTIONS).toContain(fresh.settings.gridSize);
+      expect(fresh.settings.crtGlow).toBe(false);
     };
+
+    it.each([undefined, 'true', 1, null, false])(
+      'does not enable CRT glow without a boolean opt-in (%s)',
+      async (crtGlow) => {
+        window.localStorage.setItem(
+          STORAGE_KEY_SETTINGS,
+          JSON.stringify({ crtGlow })
+        );
+        expect((await reload()).settings.crtGlow).toBe(false);
+      }
+    );
+
+    it('restores an explicit CRT glow opt-in', async () => {
+      window.localStorage.setItem(
+        STORAGE_KEY_SETTINGS,
+        JSON.stringify({ crtGlow: true })
+      );
+      expect((await reload()).settings.crtGlow).toBe(true);
+    });
 
     it('falls back to defaults when the stored payload is corrupt JSON', async () => {
       window.localStorage.setItem(STORAGE_KEY_SETTINGS, '{{not-json');

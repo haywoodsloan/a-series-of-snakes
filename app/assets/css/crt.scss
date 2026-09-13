@@ -1,4 +1,4 @@
-// Keep the CRT treatment static: no full-screen flicker or jitter.
+// The screen texture stays static: no full-screen flicker or jitter.
 .crt::before {
   content: ' ';
   display: block;
@@ -34,6 +34,31 @@
   z-index: 2;
   pointer-events: none;
   mix-blend-mode: multiply;
+}
+
+// Opt-in, edge-only glow. A full cycle takes 12 seconds and the shadow's
+// effective opacity never exceeds 1.6%; the playfield is not dimmed.
+@media (prefers-reduced-motion: no-preference) {
+  .crt.crt-glow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    box-shadow: inset 0 0 2rem rgba(212, 255, 212, 0.04);
+    opacity: 0;
+    animation: crt-edge-glow 12s ease-in-out infinite;
+  }
+}
+
+@keyframes crt-edge-glow {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .crt {

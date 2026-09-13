@@ -201,13 +201,18 @@ to settings changes.
 
 ## Accessibility and motion
 
-The CRT styling is static for everyone: scanlines, texture, glow, and
+The CRT styling is static by default: scanlines, texture, glow, and
 vignette remain, but there is no decorative screen flicker, jitter,
 moving TV static, or flashing score/initials UI. No OS preference or
 settings change is required to stop those effects.
 
+For a little ambient movement, **Settings > CRT glow** is an explicit
+opt-in, saved on this device. It adds only a faint edge glow on a smooth
+12-second cycle, not rapid flicker or whole-screen dimming. It starts off
+for new and existing users; leave it off if light-sensitive.
+
 Clients that report `prefers-reduced-motion: reduce` also have CSS
-animations and hover/focus transitions disabled outright, rather than
+animations (including CRT glow) and hover/focus transitions disabled outright, rather than
 compressed into brief flashes. Gameplay still moves and RPG combat
 still uses visual effects; this is not a guarantee of photosensitivity
 safety. A skip link and a route announcer are wired in [app.vue](app/app.vue).

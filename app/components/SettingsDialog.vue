@@ -93,7 +93,30 @@
               <span class="step step-placeholder" aria-hidden="true"></span>
             </div>
           </div>
+
+          <div class="settings-row">
+            <span class="settings-label">CRT GLOW</span>
+            <div class="settings-control">
+              <span class="step step-placeholder" aria-hidden="true"></span>
+              <button
+                type="button"
+                class="toggle"
+                aria-label="CRT glow"
+                aria-describedby="crt-glow-help"
+                :aria-pressed="settings.crtGlow"
+                @click="settings.crtGlow = !settings.crtGlow"
+              >
+                {{ settings.crtGlow ? 'ON' : 'OFF' }}
+              </button>
+              <span class="step step-placeholder" aria-hidden="true"></span>
+            </div>
+          </div>
         </div>
+
+        <p id="crt-glow-help" class="settings-help">
+          Slow edge glow. Keep off if light-sensitive. Reduced motion disables
+          it.
+        </p>
 
         <button type="button" class="settings-close" @click="close">
           <span class="chevron" aria-hidden="true">&lt;</span> BACK
@@ -267,6 +290,15 @@ watch(open, async (isOpen) => {
     vertical-align: top;
     transform: translateY(0.28em);
   }
+}
+
+.settings-help {
+  max-width: 36ch;
+  margin: 0;
+  align-self: center;
+  font-size: 0.65rem;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .settings-rows {
@@ -467,6 +499,9 @@ watch(open, async (isOpen) => {
   .settings-panel {
     --settings-value-width: 7ch;
     max-width: 92vw;
+    max-height: calc(100dvh - 2rem);
+    box-sizing: border-box;
+    overflow-y: auto;
     padding: 1.5rem 1.25rem;
     gap: 1rem;
   }

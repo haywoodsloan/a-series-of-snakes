@@ -1,5 +1,5 @@
 <template>
-  <div class="crt">
+  <div class="crt" :class="{ 'crt-glow': settings.crtGlow }">
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <NuxtRouteAnnouncer />
     <div id="main-content" class="main">
@@ -29,12 +29,14 @@
     >
       <span class="asterisk" aria-hidden="true">*</span> SETTINGS
     </button>
-    <SettingsDialog v-model="showSettings" />
   </div>
+  <!-- Keep the fixed dialog outside the filter's containing block. -->
+  <SettingsDialog v-model="showSettings" />
 </template>
 
 <script setup>
 import { ENEMY, FG, FOOD, SNAKE_ALT, WALL } from '~/utils/colors.js';
+import { settings } from '~/utils/settings.js';
 
 const route = useRoute();
 const showBack = computed(() => route.path !== '/');
@@ -114,7 +116,7 @@ textarea {
 }
 
 // Disable nonessential CSS motion outright rather than compressing it
-// into a brief flash. The CRT decoration stays static for everyone.
+// into a brief flash. This also overrides the optional edge glow.
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

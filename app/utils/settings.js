@@ -22,6 +22,7 @@ const DEFAULTS = Object.freeze({
   baseSpeed: 1,
   gridLines: false,
   gridSize: 30,
+  crtGlow: false,
 });
 
 function safeStorage() {
@@ -52,6 +53,7 @@ function load() {
       gridSize: GRID_SIZE_OPTIONS.includes(parsed.gridSize)
         ? parsed.gridSize
         : DEFAULTS.gridSize,
+      crtGlow: parsed.crtGlow === true,
     };
   } catch {
     return { ...DEFAULTS };
@@ -72,6 +74,7 @@ watch(
     baseSpeed: settings.baseSpeed,
     gridLines: settings.gridLines,
     gridSize: settings.gridSize,
+    crtGlow: settings.crtGlow,
   }),
   (next) => {
     const ls = safeStorage();
