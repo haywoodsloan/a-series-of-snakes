@@ -106,16 +106,25 @@
                 :aria-pressed="settings.crtGlow"
                 @click="settings.crtGlow = !settings.crtGlow"
               >
-                {{ settings.crtGlow ? 'ON' : 'OFF' }}
+                <template v-if="settings.crtGlow">
+                  <span class="glow-running">ON</span>
+                  <span class="glow-paused">PAUSED</span>
+                </template>
+                <template v-else>OFF</template>
               </button>
               <span class="step step-placeholder" aria-hidden="true"></span>
             </div>
           </div>
         </div>
 
-        <p id="crt-glow-help" class="settings-help">
-          Slow edge glow. Keep off if light-sensitive. Reduced motion disables
-          it.
+        <p id="crt-glow-help" class="settings-help" aria-live="polite">
+          <span v-if="settings.crtGlow" class="glow-paused">
+            Paused: your device requests reduced motion.
+          </span>
+          <span :class="{ 'glow-running': settings.crtGlow }">
+            Slow edge glow. Keep off if light-sensitive. Reduced motion disables
+            it.
+          </span>
         </p>
 
         <button type="button" class="settings-close" @click="close">
@@ -299,6 +308,20 @@ watch(open, async (isOpen) => {
   font-size: 0.65rem;
   line-height: 1.6;
   text-align: center;
+}
+
+.glow-paused {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-running {
+    display: none;
+  }
+
+  .glow-paused {
+    display: inline;
+  }
 }
 
 .settings-rows {

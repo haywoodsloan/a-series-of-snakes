@@ -1,15 +1,8 @@
 import { SNAKE_ALT } from '../utils/colors.js';
 import Engine, { STARTING_LENGTH } from './engine.js';
 
-// Mirror needs an even column count so every cell has a distinct mirror
-// cell across the vertical center line -- with the engine's default
-// (odd) grid the center column would map to itself and break the
-// "snakes never share a cell" invariant.
-const COLS = 24;
-
-// Horizontal mirror for direction inputs. Vertical motion is unchanged so
-// both snakes always occupy the same row; horizontal motion is flipped so
-// they always sit at mirrored columns across the vertical center line.
+// Vertical motion preserves the starting row offset; horizontal motion
+// is flipped across the vertical center line.
 const MIRROR_DIR = {
   up: 'up',
   down: 'down',
@@ -20,18 +13,15 @@ const MIRROR_DIR = {
 /**
  * Mirror: two snakes that always move in mirrored directions across the
  * vertical center line. One set of inputs drives both; either eating
- * grows both. Forces an even column count so the reflection is exact.
+ * grows both.
  */
 export default class Mirror extends Engine {
   constructor(canvas) {
-    // Force an even number of columns so every cell has a distinct mirror
-    // cell across the vertical center line -- see `COLS` above for why.
-    super(canvas, { cols: COLS });
+    super(canvas);
 
     // Place the primary snake on the left half so its mirror lands on the
-    // right half without overlap. The mirror is offset by exactly half the
-    // grid height (with wrap) so the two snakes are always as far apart on
-    // the y-axis as the board allows -- no immediate same-row collisions.
+    // right half without overlap. The row offset keeps the heads apart
+    // even when both occupy the center column of an odd-sized grid.
     const half = Math.floor(this.cols / 2);
     const head = {
       x: Math.floor(Math.random() * half),

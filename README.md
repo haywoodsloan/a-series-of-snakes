@@ -21,6 +21,10 @@ Deployed at: https://haywoodsloan.github.io/a-series-of-snakes/
 A separate top-10 leaderboard is stored in `localStorage` for each
 `(game, gridSize, baseSpeed)` combination.
 
+`mirror` uses the selected square grid size, including 75x75. Its two
+snakes start on different rows, so an odd-sized grid does not require
+rounding the setting or removing its center column.
+
 ## Setup
 
 Requires Node 24+ and npm. Docker is required only to run the visual
@@ -208,12 +212,16 @@ settings change is required to stop those effects.
 
 For a little ambient movement, **Settings > CRT glow** is an explicit
 opt-in, saved on this device. It adds only a faint edge glow on a smooth
-12-second cycle, not rapid flicker or whole-screen dimming. It starts off
-for new and existing users; leave it off if light-sensitive.
+12-second cycle, not rapid flicker or whole-screen dimming. The glow is
+visible as soon as it is enabled, then gently changes in strength. Close
+Settings to view the unobscured effect. It starts off for new and existing
+users; leave it off if light-sensitive.
 
 Clients that report `prefers-reduced-motion: reduce` also have CSS
-animations (including CRT glow) and hover/focus transitions disabled outright, rather than
-compressed into brief flashes. Gameplay still moves and RPG combat
+animations (including CRT glow) and hover/focus transitions disabled outright,
+rather than compressed into brief flashes. When glow is enabled but
+suppressed by this preference, its control says **PAUSED** and explains
+why; the saved opt-in is retained. Gameplay still moves and RPG combat
 still uses visual effects; this is not a guarantee of photosensitivity
 safety. A skip link and a route announcer are wired in [app.vue](app/app.vue).
 
