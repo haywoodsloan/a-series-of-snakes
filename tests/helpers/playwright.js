@@ -1,8 +1,7 @@
 // Shared Playwright helpers. Each Playwright `page` gets a fresh
 // browser context per test, so localStorage is already isolated between
-// tests; the helpers here only deal with *deterministic* setup so the
-// app's client-side randomness and font loading don't make assertions
-// flaky.
+// tests; these helpers provide deterministic setup and rendered-pixel
+// comparisons without extra image-processing dependencies.
 
 /**
  * Override Math.random with a deterministic Park-Miller LCG so the
@@ -33,4 +32,45 @@ export async function seedRandom(page, seed = 0xdeadbeef) {
  */
 export async function waitForFontsReady(page) {
   await page.evaluate(() => document.fonts.ready);
+}
+
+/**
+ * Mean absolute RGB-channel difference between equal-sized PNG screenshots.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {Buffer} first
+ * @param {Buffer} second
+ */
+export async function meanPixelDifference(page, first, second) {
+  return page.evaluate(
+    async (encoded) => {
+      const frames = [];
+      for (const png of encoded) {
+        const image = new Image();
+        image.src = `data:image/png;base64,${png}`;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Unable to decode screenshot pixels');
+        context.drawImage(image, 0, 0);
+        frames.push(context.getImageData(0, 0, image.width, image.height));
+      }
+      const [left, right] = frames;
+      if (left.width !== right.width || left.height !== right.height) {
+        throw new Error('Screenshot dimensions do not match');
+      }
+      let difference = 0;
+      for (let i = 0; i < left.data.length; i += 4) {
+        for (let channel = 0; channel < 3; channel++) {
+          difference += Math.abs(
+            left.data[i + channel] - right.data[i + channel]
+          );
+        }
+      }
+      return difference / ((left.data.length / 4) * 3);
+    },
+    [first.toString('base64'), second.toString('base64')]
+  );
 }

@@ -205,21 +205,25 @@ to settings changes. CRT Flicker changes immediately.
 
 ## Accessibility and motion
 
-**Settings > CRT Flicker** toggles the original full-screen flicker,
-horizontal jitter, and animated TV static/scanline sweeps in empty picker
-tiles. Turning it off stops these effects immediately while retaining the
-static scanlines, texture, glow, and vignette. The edge-glow replacement
-has been removed.
+**Settings > CRT Flicker** toggles full-screen flicker and horizontal jitter.
+The flicker keeps its original rhythm with a 25% lighter overlay, so it
+remains visible but less pronounced. Turning it off stops those effects
+immediately while retaining the stationary scanlines, texture, glow, and
+vignette.
+
+TV static and scanline sweeps in empty picker tiles animate independently
+of this toggle, including when CRT Flicker is **OFF**.
 
 The toggle defaults to **OFF** and is saved on this device. A saved
 preference for the former gentle CRT glow does not enable the stronger
 flicker automatically. Leave flicker off if light-sensitive.
 
 Clients that report `prefers-reduced-motion: reduce` have CSS animations
-and hover/focus transitions disabled outright. An enabled CRT Flicker
-toggle shows **PAUSED** while this preference suppresses the effects; its
-saved opt-in is retained. Gameplay still moves and RPG combat still uses
-visual effects; this is not a guarantee of photosensitivity safety.
+(including TV static) and hover/focus transitions disabled outright. An
+enabled CRT Flicker toggle shows **PAUSED** while this preference suppresses
+the effects; its saved opt-in is retained. Gameplay still moves and RPG
+combat still uses visual effects; this is not a guarantee of
+photosensitivity safety.
 A skip link and a route announcer are wired in [app.vue](app/app.vue).
 
 ## License

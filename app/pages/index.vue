@@ -378,11 +378,11 @@ watch(pageSize, () => {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .crt-flicker .preview.empty {
+  .preview.empty {
     animation: snow 1.7s steps(11) infinite;
   }
 
-  .crt-flicker .preview .trace {
+  .preview .trace {
     display: block;
     animation: trace 8s linear infinite;
     will-change: top, opacity;

@@ -36,7 +36,7 @@
   mix-blend-mode: multiply;
 }
 
-// Restore the original CRT effects only after an explicit opt-in.
+// Keep the original CRT rhythm behind an explicit opt-in.
 @media (prefers-reduced-motion: no-preference) {
   .crt.crt-flicker {
     animation: hsync-jitter 2.4s steps(8) infinite;
@@ -47,7 +47,7 @@
     display: block;
     position: absolute;
     inset: 0;
-    background: rgba(28, 22, 18, 0.12);
+    background: rgba(28, 22, 18, 0.09);
     opacity: 0;
     z-index: 3;
     pointer-events: none;

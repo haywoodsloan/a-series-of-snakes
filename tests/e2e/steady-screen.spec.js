@@ -14,23 +14,37 @@ const GAMES = [
   'rpg',
 ];
 
-async function expectNoDecorativeAnimations(page) {
-  const animatedElements = await page.locator('.crt').evaluate((root) => {
-    const animated = [];
-    for (const el of [root, ...root.querySelectorAll('*')]) {
-      for (const pseudo of [null, '::before', '::after']) {
-        const style = getComputedStyle(el, pseudo);
-        if (style.animationName !== 'none') {
-          animated.push({
-            element: el.className,
-            pseudo,
-            animation: style.animationName,
-          });
+async function expectNoUnexpectedAnimations(
+  page,
+  { allowTVStatic = false } = {}
+) {
+  const animatedElements = await page
+    .locator('.crt')
+    .evaluate((root, allowTVStatic) => {
+      const animated = [];
+      for (const el of [root, ...root.querySelectorAll('*')]) {
+        for (const pseudo of [null, '::before', '::after']) {
+          const style = getComputedStyle(el, pseudo);
+          const isTVStatic =
+            pseudo === null &&
+            ((el.matches('.preview.empty') &&
+              /^snow(?:-[\w-]+)?$/.test(style.animationName)) ||
+              (el.matches('.preview.empty .trace') &&
+                /^trace(?:-[\w-]+)?$/.test(style.animationName)));
+          if (
+            style.animationName !== 'none' &&
+            !(allowTVStatic && isTVStatic)
+          ) {
+            animated.push({
+              element: el.className,
+              pseudo,
+              animation: style.animationName,
+            });
+          }
         }
       }
-    }
-    return animated;
-  });
+      return animated;
+    }, allowTVStatic);
   expect(animatedElements).toEqual([]);
 }
 
@@ -48,13 +62,15 @@ for (const reducedMotion of ['no-preference', 'reduce']) {
       ).toBe(reducedMotion === 'reduce');
     });
 
-    test('home keeps the retro texture without animated static or flicker', async ({
+    test('home keeps screen flicker off and respects the motion preference', async ({
       page,
     }) => {
       await page.goto('/', { timeout: 15_000 });
       await expect(page.locator('.preview.empty').first()).toBeVisible();
       await waitForFontsReady(page);
-      await expectNoDecorativeAnimations(page);
+      await expectNoUnexpectedAnimations(page, {
+        allowTVStatic: reducedMotion === 'no-preference',
+      });
 
       expect(
         await page
@@ -66,13 +82,17 @@ for (const reducedMotion of ['no-preference', 'reduce']) {
         'none'
       );
 
-      // Compare the actual rendered page, without Playwright disabling
-      // animations as it normally does for visual snapshots.
-      const first = await page.screenshot({
+      // With normal motion only the previews animate; reduced motion
+      // keeps the whole page steady without screenshot-time suppression.
+      const target =
+        reducedMotion === 'reduce'
+          ? page
+          : page.getByRole('heading', { level: 1 });
+      const first = await target.screenshot({
         animations: 'allow',
         timeout: 5000,
       });
-      const second = await page.screenshot({
+      const second = await target.screenshot({
         animations: 'allow',
         timeout: 5000,
       });
@@ -83,7 +103,7 @@ for (const reducedMotion of ['no-preference', 'reduce']) {
       test(`/${game} has no decorative screen animation`, async ({ page }) => {
         await page.goto(`/${game}`, { timeout: 15_000 });
         await expect(page.locator('canvas.game-canvas')).toBeVisible();
-        await expectNoDecorativeAnimations(page);
+        await expectNoUnexpectedAnimations(page);
       });
     }
 
@@ -96,7 +116,7 @@ for (const reducedMotion of ['no-preference', 'reduce']) {
       await expect(page.locator('#initials-input')).toBeVisible({
         timeout: 10_000,
       });
-      await expectNoDecorativeAnimations(page);
+      await expectNoUnexpectedAnimations(page);
       await expect(page.locator('.initials-ghost .pending i')).toHaveCSS(
         'opacity',
         '1'
@@ -105,7 +125,7 @@ for (const reducedMotion of ['no-preference', 'reduce']) {
       await page.locator('#initials-input').fill('ABC');
       await page.getByRole('button', { name: 'ENTER', exact: true }).click();
       await expect(page.locator('.scoreboard-row.current')).toBeVisible();
-      await expectNoDecorativeAnimations(page);
+      await expectNoUnexpectedAnimations(page);
       await expect(page.locator('.scoreboard-row.current')).toHaveCSS(
         'opacity',
         '1'
