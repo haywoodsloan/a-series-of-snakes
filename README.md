@@ -199,31 +199,28 @@ Cancelled touches, leaving the tab, and stopping a game clear held input.
 `mirror` still steers both snakes, and `inverted` still reverses directions.
 
 The settings button (bottom-left, home page only) controls base speed
-and grid size, and toggles an optional grid overlay. Changes apply on
-the next game start, or immediately for running games that subscribe
-to settings changes.
+and grid size, and toggles the grid overlay and CRT flicker. Game settings
+apply on the next game start, or immediately for running games that subscribe
+to settings changes. CRT Flicker changes immediately.
 
 ## Accessibility and motion
 
-The CRT styling is static by default: scanlines, texture, glow, and
-vignette remain, but there is no decorative screen flicker, jitter,
-moving TV static, or flashing score/initials UI. No OS preference or
-settings change is required to stop those effects.
+**Settings > CRT Flicker** toggles the original full-screen flicker,
+horizontal jitter, and animated TV static/scanline sweeps in empty picker
+tiles. Turning it off stops these effects immediately while retaining the
+static scanlines, texture, glow, and vignette. The edge-glow replacement
+has been removed.
 
-For a little ambient movement, **Settings > CRT glow** is an explicit
-opt-in, saved on this device. It adds only a faint edge glow on a smooth
-12-second cycle, not rapid flicker or whole-screen dimming. The glow is
-visible as soon as it is enabled, then gently changes in strength. Close
-Settings to view the unobscured effect. It starts off for new and existing
-users; leave it off if light-sensitive.
+The toggle defaults to **OFF** and is saved on this device. A saved
+preference for the former gentle CRT glow does not enable the stronger
+flicker automatically. Leave flicker off if light-sensitive.
 
-Clients that report `prefers-reduced-motion: reduce` also have CSS
-animations (including CRT glow) and hover/focus transitions disabled outright,
-rather than compressed into brief flashes. When glow is enabled but
-suppressed by this preference, its control says **PAUSED** and explains
-why; the saved opt-in is retained. Gameplay still moves and RPG combat
-still uses visual effects; this is not a guarantee of photosensitivity
-safety. A skip link and a route announcer are wired in [app.vue](app/app.vue).
+Clients that report `prefers-reduced-motion: reduce` have CSS animations
+and hover/focus transitions disabled outright. An enabled CRT Flicker
+toggle shows **PAUSED** while this preference suppresses the effects; its
+saved opt-in is retained. Gameplay still moves and RPG combat still uses
+visual effects; this is not a guarantee of photosensitivity safety.
+A skip link and a route announcer are wired in [app.vue](app/app.vue).
 
 ## License
 

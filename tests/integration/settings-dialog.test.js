@@ -29,7 +29,9 @@ describe('SettingsDialog', () => {
       expect(text).toContain('BASE SPEED');
       expect(text).toContain('GRID SIZE');
       expect(text).toContain('GRID LINES');
-      expect(text).toContain('CRT GLOW');
+      expect(text).toContain('CRT FLICKER');
+      expect(text).not.toContain('CRT GLOW');
+      expect(wrapper.find('.settings-help').exists()).toBe(false);
     });
   });
 
@@ -50,16 +52,16 @@ describe('SettingsDialog', () => {
   });
 
   describe('settings mutation', () => {
-    it('lets the user opt into and out of CRT glow', async () => {
-      settings.crtGlow = false;
+    it('lets the user opt into and out of CRT flicker', async () => {
+      settings.crtFlicker = false;
       const wrapper = await mountDialog();
-      const toggle = wrapper.find('button[aria-label="CRT glow"]');
+      const toggle = wrapper.find('button[aria-label="CRT Flicker"]');
       expect(toggle.attributes('aria-pressed')).toBe('false');
       await toggle.trigger('click');
-      expect(settings.crtGlow).toBe(true);
+      expect(settings.crtFlicker).toBe(true);
       expect(toggle.attributes('aria-pressed')).toBe('true');
       await toggle.trigger('click');
-      expect(settings.crtGlow).toBe(false);
+      expect(settings.crtFlicker).toBe(false);
     });
 
     it('toggles grid-lines on click', async () => {

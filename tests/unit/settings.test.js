@@ -33,15 +33,15 @@ describe('settings', () => {
     });
   });
 
-  it('persists an explicit CRT glow opt-in', async () => {
-    settings.crtGlow = true;
+  it('persists an explicit CRT flicker opt-in', async () => {
+    settings.crtFlicker = true;
     try {
       await vi.waitFor(() => {
         const raw = window.localStorage.getItem(STORAGE_KEY_SETTINGS);
-        expect(JSON.parse(raw ?? 'null')?.crtGlow).toBe(true);
+        expect(JSON.parse(raw ?? 'null')?.crtFlicker).toBe(true);
       });
     } finally {
-      settings.crtGlow = false;
+      settings.crtFlicker = false;
     }
   });
 
@@ -90,26 +90,44 @@ describe('settings', () => {
       expect(SPEED_OPTIONS).toContain(fresh.settings.baseSpeed);
       expect(typeof fresh.settings.gridLines).toBe('boolean');
       expect(GRID_SIZE_OPTIONS).toContain(fresh.settings.gridSize);
-      expect(fresh.settings.crtGlow).toBe(false);
+      expect(fresh.settings.crtFlicker).toBe(false);
     };
 
     it.each([undefined, 'true', 1, null, false])(
-      'does not enable CRT glow without a boolean opt-in (%s)',
-      async (crtGlow) => {
+      'does not enable CRT flicker without a boolean opt-in (%s)',
+      async (crtFlicker) => {
         window.localStorage.setItem(
           STORAGE_KEY_SETTINGS,
-          JSON.stringify({ crtGlow })
+          JSON.stringify({ crtFlicker })
         );
-        expect((await reload()).settings.crtGlow).toBe(false);
+        expect((await reload()).settings.crtFlicker).toBe(false);
       }
     );
 
-    it('restores an explicit CRT glow opt-in', async () => {
+    it('restores an explicit CRT flicker opt-in', async () => {
       window.localStorage.setItem(
         STORAGE_KEY_SETTINGS,
-        JSON.stringify({ crtGlow: true })
+        JSON.stringify({ crtFlicker: true })
       );
-      expect((await reload()).settings.crtGlow).toBe(true);
+      expect((await reload()).settings.crtFlicker).toBe(true);
+    });
+
+    it('does not treat the old gentle-glow preference as permission to flicker', async () => {
+      window.localStorage.setItem(
+        STORAGE_KEY_SETTINGS,
+        JSON.stringify({
+          crtGlow: true,
+          baseSpeed: 0.5,
+          gridSize: 75,
+          gridLines: true,
+        })
+      );
+      expect((await reload()).settings).toMatchObject({
+        crtFlicker: false,
+        baseSpeed: 0.5,
+        gridSize: 75,
+        gridLines: true,
+      });
     });
 
     it('falls back to defaults when the stored payload is corrupt JSON', async () => {

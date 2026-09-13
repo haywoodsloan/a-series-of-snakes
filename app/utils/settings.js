@@ -22,7 +22,7 @@ const DEFAULTS = Object.freeze({
   baseSpeed: 1,
   gridLines: false,
   gridSize: 30,
-  crtGlow: false,
+  crtFlicker: false,
 });
 
 function safeStorage() {
@@ -53,7 +53,8 @@ function load() {
       gridSize: GRID_SIZE_OPTIONS.includes(parsed.gridSize)
         ? parsed.gridSize
         : DEFAULTS.gridSize,
-      crtGlow: parsed.crtGlow === true,
+      // The old gentle-glow opt-in must not enable the stronger flicker.
+      crtFlicker: parsed.crtFlicker === true,
     };
   } catch {
     return { ...DEFAULTS };
@@ -74,7 +75,7 @@ watch(
     baseSpeed: settings.baseSpeed,
     gridLines: settings.gridLines,
     gridSize: settings.gridSize,
-    crtGlow: settings.crtGlow,
+    crtFlicker: settings.crtFlicker,
   }),
   (next) => {
     const ls = safeStorage();

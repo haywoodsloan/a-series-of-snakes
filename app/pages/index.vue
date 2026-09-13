@@ -19,7 +19,14 @@
           ></span>
           <span class="label">{{ cell.label }}</span>
         </NuxtLink>
-        <span v-else class="preview empty" aria-hidden="true"></span>
+        <span
+          v-else
+          class="preview empty"
+          :style="snowStyles[i]"
+          aria-hidden="true"
+        >
+          <span class="trace" :style="traceStyles[i]"></span>
+        </span>
       </template>
     </div>
     <div ref="controlsRef" class="controls">
@@ -57,6 +64,13 @@ const DEFAULT_PAGE_SIZE = 12;
 // breakpoints in <style>.
 const MOBILE_QUERY = '(max-width: 960px)';
 
+const SNOW_MAX_DELAY = 5;
+const SNOW_DURATION_MIN = 1.4;
+const SNOW_DURATION_RANGE = 0.6;
+const TRACE_MAX_DELAY = 8;
+const TRACE_DURATION_MIN = 4;
+const TRACE_DURATION_RANGE = 3;
+
 // Pre-compute display data once: games is a static module-level array, so
 // this never needs to be recomputed -- it lives in module scope and the
 // component just references it.
@@ -89,6 +103,13 @@ const pageCells = computed(() => {
   }
   return out;
 });
+
+const snowStyles = shallowRef(
+  new Array(DEFAULT_PAGE_SIZE).fill(null).map(() => ({}))
+);
+const traceStyles = shallowRef(
+  new Array(DEFAULT_PAGE_SIZE).fill(null).map(() => ({}))
+);
 
 /**
  * How many previews fit on one page without scrolling. Desktop keeps the
@@ -128,6 +149,30 @@ function measurePageSize() {
 
 let stopResize = null;
 onMounted(() => {
+  // Randomize on the client to avoid hydration mismatches and keep the
+  // restored TV-static tiles from animating in lockstep.
+  const styles = [];
+  const traces = [];
+  for (let i = 0; i < DEFAULT_PAGE_SIZE; i++) {
+    styles.push({
+      animationDelay: `-${(Math.random() * SNOW_MAX_DELAY).toFixed(2)}s`,
+      animationDuration: `${(
+        SNOW_DURATION_MIN +
+        Math.random() * SNOW_DURATION_RANGE
+      ).toFixed(2)}s`,
+      animationDirection: Math.random() < 0.5 ? 'normal' : 'reverse',
+    });
+    traces.push({
+      animationDelay: `-${(Math.random() * TRACE_MAX_DELAY).toFixed(2)}s`,
+      animationDuration: `${(
+        TRACE_DURATION_MIN +
+        Math.random() * TRACE_DURATION_RANGE
+      ).toFixed(2)}s`,
+    });
+  }
+  snowStyles.value = styles;
+  traceStyles.value = traces;
+
   // Fit the page to the viewport now, again after layout settles and
   // fonts load (both shift the header height the fit depends on), and on
   // every resize / rotation.
@@ -310,6 +355,124 @@ watch(pageSize, () => {
 .preview:has(.preview-image) {
   // Suppress the snow background when a preview image is present.
   background-image: none;
+}
+
+.preview .trace {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 1;
+  height: 14%;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(212, 255, 212, 0.03) 35%,
+    rgba(212, 255, 212, 0.14) 50%,
+    rgba(212, 255, 212, 0.03) 65%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .crt-flicker .preview.empty {
+    animation: snow 1.7s steps(11) infinite;
+  }
+
+  .crt-flicker .preview .trace {
+    display: block;
+    animation: trace 8s linear infinite;
+    will-change: top, opacity;
+  }
+}
+
+@keyframes snow {
+  0% {
+    background-position:
+      17px 83px,
+      -91px 42px,
+      54px -127px;
+  }
+  10% {
+    background-position:
+      -134px 29px,
+      62px -108px,
+      -19px 77px;
+  }
+  20% {
+    background-position:
+      88px -156px,
+      -147px 8px,
+      113px 34px;
+  }
+  30% {
+    background-position:
+      -52px 121px,
+      39px 167px,
+      -86px -141px;
+  }
+  40% {
+    background-position:
+      173px -7px,
+      -118px -94px,
+      27px 62px;
+  }
+  50% {
+    background-position:
+      -98px -64px,
+      142px 55px,
+      -161px 18px;
+  }
+  60% {
+    background-position:
+      46px 138px,
+      -3px -129px,
+      91px -48px;
+  }
+  70% {
+    background-position:
+      -157px -41px,
+      108px 76px,
+      -132px 152px;
+  }
+  80% {
+    background-position:
+      71px 97px,
+      -176px -23px,
+      8px -89px;
+  }
+  90% {
+    background-position:
+      -119px -113px,
+      24px 131px,
+      149px 41px;
+  }
+  100% {
+    background-position:
+      62px 38px,
+      -84px -71px,
+      -47px 104px;
+  }
+}
+
+@keyframes trace {
+  0% {
+    top: 100%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: -14%;
+    opacity: 0;
+  }
 }
 
 .preview-image {

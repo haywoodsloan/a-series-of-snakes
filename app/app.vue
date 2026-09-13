@@ -1,5 +1,5 @@
 <template>
-  <div class="crt" :class="{ 'crt-glow': settings.crtGlow }">
+  <div class="crt" :class="{ 'crt-flicker': settings.crtFlicker }">
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <NuxtRouteAnnouncer />
     <div id="main-content" class="main">
@@ -116,7 +116,7 @@ textarea {
 }
 
 // Disable nonessential CSS motion outright rather than compressing it
-// into a brief flash. This also overrides the optional edge glow.
+// into a brief flash. This also overrides the optional CRT effects.
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

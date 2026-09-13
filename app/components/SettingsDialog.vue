@@ -95,20 +95,19 @@
           </div>
 
           <div class="settings-row">
-            <span class="settings-label">CRT GLOW</span>
+            <span class="settings-label">CRT FLICKER</span>
             <div class="settings-control">
               <span class="step step-placeholder" aria-hidden="true"></span>
               <button
                 type="button"
                 class="toggle"
-                aria-label="CRT glow"
-                aria-describedby="crt-glow-help"
-                :aria-pressed="settings.crtGlow"
-                @click="settings.crtGlow = !settings.crtGlow"
+                aria-label="CRT Flicker"
+                :aria-pressed="settings.crtFlicker"
+                @click="settings.crtFlicker = !settings.crtFlicker"
               >
-                <template v-if="settings.crtGlow">
-                  <span class="glow-running">ON</span>
-                  <span class="glow-paused">PAUSED</span>
+                <template v-if="settings.crtFlicker">
+                  <span class="flicker-running">ON</span>
+                  <span class="flicker-paused">PAUSED</span>
                 </template>
                 <template v-else>OFF</template>
               </button>
@@ -116,16 +115,6 @@
             </div>
           </div>
         </div>
-
-        <p id="crt-glow-help" class="settings-help" aria-live="polite">
-          <span v-if="settings.crtGlow" class="glow-paused">
-            Paused: your device requests reduced motion.
-          </span>
-          <span :class="{ 'glow-running': settings.crtGlow }">
-            Slow edge glow. Keep off if light-sensitive. Reduced motion disables
-            it.
-          </span>
-        </p>
 
         <button type="button" class="settings-close" @click="close">
           <span class="chevron" aria-hidden="true">&lt;</span> BACK
@@ -301,25 +290,16 @@ watch(open, async (isOpen) => {
   }
 }
 
-.settings-help {
-  max-width: 36ch;
-  margin: 0;
-  align-self: center;
-  font-size: 0.65rem;
-  line-height: 1.6;
-  text-align: center;
-}
-
-.glow-paused {
+.flicker-paused {
   display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .glow-running {
+  .flicker-running {
     display: none;
   }
 
-  .glow-paused {
+  .flicker-paused {
     display: inline;
   }
 }
@@ -576,6 +556,18 @@ watch(open, async (isOpen) => {
   .settings-control .step,
   .settings-control .toggle {
     font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .settings-rows {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    row-gap: 0.75rem;
+  }
+
+  .settings-control {
+    margin-bottom: 0.5rem;
   }
 }
 </style>
